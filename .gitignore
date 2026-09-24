@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+sitl/run/*
+!sitl/run/.gitkeep
+*.npz
+*.BIN
+*.bin
+.DS_Store

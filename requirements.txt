@@ -1,0 +1,15 @@
+numpy>=1.26
+mujoco>=3.2
+onnx>=1.16
+onnxruntime>=1.18
+pymavlink>=2.4.40
+# BAM XL330 voltage-model actuators (what the policies were trained with)
+better-actuator-models @ git+https://github.com/Rhoban/bam.git@mjlab_frictionloss
+colorama
+# ArduPilot waf build (run with .venv/bin/python ./waf)
+empy==3.3.4
+pexpect
+future
+intelhex
+setuptools
+pytest>=8

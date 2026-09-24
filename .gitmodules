@@ -1,0 +1,4 @@
+[submodule "ardupilot"]
+	path = ardupilot
+	url = https://github.com/virtualrobotix/ardupilot.git
+	branch = master
