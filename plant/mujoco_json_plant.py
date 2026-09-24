@@ -226,10 +226,95 @@ class Plant:
             self.viewer.sync()
 
 
+class Overlay:
+    """Draws a GCS-side panel on the video: the MAVProxy commands / MAVLink messages the driver
+    script is sending (read from a JSON-lines file appended by scripts/demo_mavproxy.py) plus the
+    plant state. Rendered with Pillow onto the RGB frame."""
+
+    FONTS = ["/System/Library/Fonts/Menlo.ttc", "/System/Library/Fonts/Monaco.ttf",
+             "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"]
+
+    def __init__(self, path: Path, width: int, height: int):
+        from PIL import ImageFont
+
+        self.path = path
+        self.events: list[dict] = []
+        self.mtime = -1.0
+        self.width, self.height = width, height
+        self.font = None
+        self.font_b = None
+        for f in self.FONTS:
+            if Path(f).exists():
+                self.font = ImageFont.truetype(f, 15)
+                self.font_b = ImageFont.truetype(f, 17)
+                break
+        if self.font is None:
+            self.font = ImageFont.load_default()
+            self.font_b = self.font
+
+    def refresh(self):
+        try:
+            st = self.path.stat()
+        except FileNotFoundError:
+            return
+        if st.st_mtime == self.mtime:
+            return
+        self.mtime = st.st_mtime
+        ev = []
+        for line in self.path.read_text().splitlines():
+            line = line.strip()
+            if line:
+                try:
+                    ev.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+        self.events = ev
+
+    def draw(self, frame: np.ndarray, plant: "Plant", driving: bool) -> np.ndarray:
+        from PIL import Image, ImageDraw
+
+        self.refresh()
+        img = Image.fromarray(frame)
+        d = ImageDraw.Draw(img, "RGBA")
+        W = self.width
+        # header: the chain
+        d.rectangle([0, 0, W, 30], fill=(10, 20, 35, 200))
+        d.text((10, 6), "MAVProxy (script)  --MAVLink tcp:5760-->  ArduRover SITL [AP_MicroDuck PPO 50 Hz]  --SIM_JSON udp:9002/9003-->  MuJoCo",
+               font=self.font_b, fill=(230, 235, 245, 255))
+        # command panel (top-left, below header)
+        x0, y0, pw = 10, 40, 470
+        recent = self.events[-7:]
+        ph = 30 + 40 * max(len(recent), 1) + 8
+        d.rectangle([x0, y0, x0 + pw, y0 + ph], fill=(10, 20, 35, 185), outline=(120, 160, 220, 255))
+        d.text((x0 + 10, y0 + 6), "Comandi inviati dallo script → MAVLink", font=self.font_b, fill=(255, 200, 80, 255))
+        y = y0 + 32
+        for i, e in enumerate(recent):
+            last = i == len(recent) - 1
+            col = (255, 255, 255, 255) if last else (170, 185, 205, 255)
+            d.text((x0 + 10, y), f"MAV> {e.get('cmd', '')}", font=self.font, fill=col)
+            d.text((x0 + 10, y + 18), f"     {e.get('mavlink', '')}", font=self.font,
+                   fill=(120, 220, 160, 255) if last else (110, 150, 130, 255))
+            y += 40
+        # phase badge (top-right)
+        phase = recent[-1].get("phase", "") if recent else ""
+        if phase:
+            tw = d.textlength(phase, font=self.font_b) + 24
+            d.rectangle([W - tw - 10, 40, W - 10, 70], fill=(200, 60, 40, 210))
+            d.text((W - tw + 2, 46), phase, font=self.font_b, fill=(255, 255, 255, 255))
+        # plant status (bottom-left)
+        x, yv, z = plant.data.qpos[plant.free_qpos : plant.free_qpos + 3]
+        status = (f"MuJoCo  t={plant.t:6.2f}s  xy=({x:+.2f},{yv:+.2f}) m  z={z:.3f} m  tilt={plant.tilt_deg():4.1f}°  "
+                  f"{'servo attivi (armato)' if driving else 'idle (disarmato)'}")
+        d.rectangle([0, self.height - 28, W, self.height], fill=(10, 20, 35, 200))
+        d.text((10, self.height - 23), status, font=self.font, fill=(230, 235, 245, 255))
+        return np.asarray(img)
+
+
 class VideoRecorder:
     """Offscreen render of the plant to an mp4 (ffmpeg pipe), camera tracking the trunk."""
 
-    def __init__(self, plant: Plant, path: Path, fps: float = 25.0, width: int = 960, height: int = 540):
+    def __init__(self, plant: Plant, path: Path, fps: float = 25.0, width: int = 960, height: int = 540,
+                 overlay: Path | None = None):
         import shutil
         import subprocess
 
@@ -238,6 +323,8 @@ class VideoRecorder:
             raise RuntimeError("ffmpeg not found")
         self.plant = plant
         self.fps = fps
+        self.overlay = Overlay(overlay, width, height) if overlay is not None else None
+        self.driving = False
         # the scene's offscreen framebuffer defaults to 640x480; enlarge it for the recording
         plant.model.vis.global_.offwidth = max(plant.model.vis.global_.offwidth, width)
         plant.model.vis.global_.offheight = max(plant.model.vis.global_.offheight, height)
@@ -265,6 +352,8 @@ class VideoRecorder:
         self.cam.lookat[2] = 0.08
         self.renderer.update_scene(d, camera=self.cam)
         frame = self.renderer.render()
+        if self.overlay is not None:
+            frame = self.overlay.draw(frame, self.plant, self.driving)
         if self.proc.stdin is not None:
             self.proc.stdin.write(frame.tobytes())
         self.n += 1
@@ -293,7 +382,9 @@ def main() -> None:
     ap.add_argument("--debug-frames", type=int, default=8, help="print the first N driving frames (PWM, targets)")
     ap.add_argument("--record", type=Path, default=None,
                     help="record per-frame truth (t, gyro FLU, gravity FLU, jpos, jvel, pwm) to this .npz on exit")
-    ap.add_argument("--video", type=Path, default=None, help="record an mp4 of the plant (offscreen render, 25 fps) while driving")
+    ap.add_argument("--video", type=Path, default=None, help="record an mp4 of the plant (offscreen render, 25 fps)")
+    ap.add_argument("--overlay", type=Path, default=None,
+                    help="JSON-lines file with the GCS commands to show on the video (written by scripts/demo_mavproxy.py)")
     args = ap.parse_args()
 
     if not args.mjcf.exists():
@@ -316,8 +407,8 @@ def main() -> None:
     video = None
     if args.video is not None:
         try:
-            video = VideoRecorder(plant, args.video)
-            print(f"[plant] recording video to {args.video}")
+            video = VideoRecorder(plant, args.video, overlay=args.overlay)
+            print(f"[plant] recording video to {args.video}" + (f" (overlay {args.overlay})" if args.overlay else ""))
         except Exception as e:  # noqa: BLE001
             print(f"[plant] video disabled ({e!r})")
     t_stat = time.perf_counter()
@@ -369,7 +460,9 @@ def main() -> None:
             sens = plant.sensors()
             msg = json.dumps(sens, separators=(",", ":"))
             sock.sendto(("\n" + msg + "\n").encode(), addr)
-            if video is not None and driving:
+            if video is not None and (driving or video.overlay is not None):
+                # with an overlay we also film the idle phase (boot, arm) so the command panel tells the story
+                video.driving = driving
                 video.maybe_capture()
             if args.record is not None and driving:
                 d = plant.data
