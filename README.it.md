@@ -311,9 +311,11 @@ Demo visiva in un comando (finestra MuJoCo + SITL + MAVProxy digitato dallo scri
 .venv/bin/python scripts/demo_mavproxy.py --video out.mp4 --keep
 ```
 
-Sequenza digitata in MAVProxy: `param set MDK_POLICY`, `mode manual`, `rc all 1500`, `arm throttle` → 8 s in
-piedi → `rc 2 2000` avanti 12 s → `rc 1 1800` laterale → `rc 4 2000` rotazione → `mode hold` → `mode manual`
-→ `disarm`. Con `--keep` resta tutto acceso per comandi a mano.
+Sequenza digitata in MAVProxy: `param set MDK_POLICY`, `mode manual`, `rc all 1500`, `arm throttle` → 6 s in
+piedi → `rc 2 2000` avanti 3 s → `rc 2 1000` indietro 2 s → `rc 1 1800` laterale 2 s → `rc 4 2000` finché la
+velocità di imbardata ricevuta in `ATTITUDE` integra 90° → `rc 2 2000` avanti 5 s → `mode hold` → `mode manual`
+→ `disarm`. L'overlay del video mostra ogni comando con il messaggio MAVLink che produce. Con `--keep` resta
+tutto acceso per comandi a mano.
 
 Manuale: terminale 1 `.venv/bin/mjpython plant/mujoco_json_plant.py` (macOS; `scripts/run_plant.sh` su Linux),
 terminale 2 `scripts/run_sitl.sh --console`, poi gli stessi comandi MAVProxy a mano.

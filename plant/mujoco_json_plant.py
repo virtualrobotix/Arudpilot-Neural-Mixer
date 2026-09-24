@@ -172,6 +172,10 @@ class Plant:
         w, x, y, z = self.data.xquat[self.trunk_id]
         return math.degrees(math.acos(max(-1.0, min(1.0, 1 - 2 * (x * x + y * y)))))
 
+    def yaw_deg(self) -> float:
+        w, x, y, z = self.data.xquat[self.trunk_id]
+        return math.degrees(math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+
     def idle(self):
         """SITL not driving yet (all PWM zero): keep the duck pinned upright, advance time only."""
         self.t += TIMESTEP
@@ -281,12 +285,17 @@ class Overlay:
         d.rectangle([0, 0, W, 30], fill=(10, 20, 35, 200))
         d.text((10, 6), "MAVProxy script --MAVLink tcp:5760--> ArduRover SITL [AP_MicroDuck PPO 50 Hz] --SIM_JSON udp--> MuJoCo",
                font=self.font_b, fill=(230, 235, 245, 255))
-        # command panel (top-left, below header)
-        x0, y0, pw = 10, 40, 470
-        recent = self.events[-7:]
+        # credit box (top-left)
+        x0, pw = 10, 470
+        d.rectangle([x0, 40, x0 + pw, 92], fill=(10, 20, 35, 200), outline=(255, 200, 80, 255))
+        d.text((x0 + 10, 46), "Preview - PPO development by Roberto Navoni", font=self.font_b, fill=(255, 200, 80, 255))
+        d.text((x0 + 10, 68), "ArduPilot Dev Team  ·  r.navoni74@gmail.com", font=self.font, fill=(230, 235, 245, 255))
+        # command panel (below the credit box)
+        y0 = 100
+        recent = self.events[-6:]
         ph = 30 + 40 * max(len(recent), 1) + 8
         d.rectangle([x0, y0, x0 + pw, y0 + ph], fill=(10, 20, 35, 185), outline=(120, 160, 220, 255))
-        d.text((x0 + 10, y0 + 6), "Comandi inviati dallo script → MAVLink", font=self.font_b, fill=(255, 200, 80, 255))
+        d.text((x0 + 10, y0 + 6), "Commands sent by the script -> MAVLink", font=self.font_b, fill=(255, 200, 80, 255))
         y = y0 + 32
         for i, e in enumerate(recent):
             last = i == len(recent) - 1
@@ -298,13 +307,20 @@ class Overlay:
         # phase badge (top-right)
         phase = recent[-1].get("phase", "") if recent else ""
         if phase:
-            tw = d.textlength(phase, font=self.font_b) + 24
+            # badge in the free area right of the credit box; shrink/trim so it never overlaps it
+            max_w = W - (x0 + pw) - 30
+            font = self.font_b
+            if d.textlength(phase, font=font) + 24 > max_w:
+                font = self.font
+            while d.textlength(phase, font=font) + 24 > max_w and len(phase) > 8:
+                phase = phase[:-2] + "…"
+            tw = d.textlength(phase, font=font) + 24
             d.rectangle([W - tw - 10, 40, W - 10, 70], fill=(200, 60, 40, 210))
-            d.text((W - tw + 2, 46), phase, font=self.font_b, fill=(255, 255, 255, 255))
+            d.text((W - tw + 2, 47), phase, font=font, fill=(255, 255, 255, 255))
         # plant status (bottom-left)
         x, yv, z = plant.data.qpos[plant.free_qpos : plant.free_qpos + 3]
-        status = (f"MuJoCo  t={plant.t:6.2f}s  xy=({x:+.2f},{yv:+.2f}) m  z={z:.3f} m  tilt={plant.tilt_deg():4.1f}°  "
-                  f"{'servo attivi (armato)' if driving else 'idle (disarmato)'}")
+        status = (f"MuJoCo  t={plant.t:6.2f}s  xy=({x:+.2f},{yv:+.2f}) m  z={z:.3f} m  tilt={plant.tilt_deg():4.1f} deg  "
+                  f"yaw={plant.yaw_deg():+6.1f} deg  {'servos active (armed)' if driving else 'idle (disarmed)'}")
         d.rectangle([0, self.height - 28, W, self.height], fill=(10, 20, 35, 200))
         d.text((10, self.height - 23), status, font=self.font, fill=(230, 235, 245, 255))
         return np.asarray(img)

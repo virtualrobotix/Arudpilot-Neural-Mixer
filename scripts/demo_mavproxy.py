@@ -11,8 +11,8 @@ moves in the MuJoCo window. MAVProxy's own output stays visible in this terminal
     scripts/demo_mavproxy.py --graph         # MAVProxy live graph of PPO_* telemetry (needs wxPython)
     scripts/demo_mavproxy.py --console       # MAVProxy console window (needs wxPython)
 
-Sequence: boot -> arm (stand) 8 s -> forward rc2 2000 12 s -> lateral rc1 1800 8 s
--> turn rc4 2000 8 s -> mode HOLD 5 s -> manual -> disarm.
+Sequence: boot -> arm (stand) 6 s -> forward 3 s -> backward 2 s -> lateral 2 s -> turn 90 deg
+(closed loop on the ATTITUDE yaw streamed back over MAVLink) -> forward 5 s -> HOLD -> manual -> disarm.
 On macOS the plant runs under `.venv/bin/mjpython` (required by the MuJoCo viewer).
 """
 
@@ -83,6 +83,9 @@ class Demo:
         self.procs: list[subprocess.Popen] = []
         self.mav: subprocess.Popen | None = None
         self.phase = "boot"
+        self.telem = None
+        self._turn_rad = 0.0
+        self._turn_last_ms = None
         if args.video is not None:
             RUN_DIR.mkdir(parents=True, exist_ok=True)
             OVERLAY.write_text("")
@@ -119,7 +122,7 @@ class Demo:
     def start_mavproxy(self):
         mavproxy = shutil.which("mavproxy.py") or "mavproxy.py"
         cmd = [mavproxy, "--master", "tcp:127.0.0.1:5760", "--out", "udp:127.0.0.1:14550",
-               "--aircraft", "microduck"]
+               "--streamrate", "20", "--aircraft", "microduck"]
         if self.args.console:
             cmd.append("--console")  # needs wxPython in MAVProxy's python
         self.mav = subprocess.Popen(cmd, stdin=subprocess.PIPE, cwd=RUN_DIR, text=True, bufsize=1)
@@ -159,20 +162,69 @@ class Demo:
         self.send("arm throttle force", 1.0, phase=f"ARMED - standing ({pol})")
         log(f"stand {a.t_stand:.0f} s")
         time.sleep(a.t_stand)
-        # full stick forward: on the CPU plant the MLP only really walks at 0.3-0.4 m/s of command
+        # full stick: on the CPU plant the MLP only really walks at 0.3-0.4 m/s of command
         vx = (a.rc_fwd - 1500) / 500 * 0.4
-        self.send(f"rc 2 {a.rc_fwd}", 0.0, phase=f"forward  vx = {vx:+.2f} m/s"); log(f"forward (rc2 {a.rc_fwd}) {a.t_move:.0f} s"); time.sleep(a.t_move)
-        self.send("rc 2 1500", 3.0, phase="stop")
+        self.send(f"rc 2 {a.rc_fwd}", 0.0, phase=f"forward  vx = {vx:+.2f} m/s  ({a.t_fwd:.0f} s)"); log(f"forward {a.t_fwd:.0f} s"); time.sleep(a.t_fwd)
+        rc_back = 3000 - a.rc_fwd
+        self.send(f"rc 2 {rc_back}", 0.0, phase=f"backward  vx = {-vx:+.2f} m/s  ({a.t_back:.0f} s)"); log(f"backward {a.t_back:.0f} s"); time.sleep(a.t_back)
+        self.send("rc 2 1500", 1.5, phase="stop")
         vy = (a.rc_lat - 1500) / 500 * 0.3
-        self.send(f"rc 1 {a.rc_lat}", 0.0, phase=f"lateral  vy = {vy:+.2f} m/s"); log(f"lateral (rc1 {a.rc_lat}) {a.t_side:.0f} s"); time.sleep(a.t_side)
-        self.send("rc 1 1500", 3.0, phase="stop")
+        self.send(f"rc 1 {a.rc_lat}", 0.0, phase=f"lateral  vy = {vy:+.2f} m/s  ({a.t_lat:.0f} s)"); log(f"lateral {a.t_lat:.0f} s"); time.sleep(a.t_lat)
+        self.send("rc 1 1500", 1.5, phase="stop")
+        # turn 90 deg, closed loop on the yaw rate ArduPilot streams back (ATTITUDE.yawspeed, gyro based —
+        # the EKF heading of a legless "rover" with a simulated compass is not trustworthy for this)
         wz = (a.rc_turn - 1500) / 500 * 1.0
-        self.send(f"rc 4 {a.rc_turn}", 0.0, phase=f"turn  wz = {wz:+.2f} rad/s"); log(f"turn (rc4 {a.rc_turn}) {a.t_side:.0f} s"); time.sleep(a.t_side)
-        self.send("rc 4 1500", 2.0, phase="stop")
-        self.send("mode hold", 0.0, phase="HOLD: twist forced to 0"); log("HOLD 5 s (twist forced to 0)"); time.sleep(5.0)
-        self.send("mode manual", 2.0, phase="MANUAL")
+        self.reset_turn_integrator()
+        self.send(f"rc 4 {a.rc_turn}", 0.0, phase=f"turn {a.turn_deg:.0f} deg  wz = {wz:+.2f} rad/s  (integrating ATTITUDE.yawspeed)")
+        log(f"turning until the integrated yaw rate reaches {a.turn_deg:.0f} deg")
+        t0 = time.time()
+        turned = 0.0
+        while time.time() - t0 < a.t_turn_max:
+            time.sleep(0.02)
+            turned = abs(self.turned_deg())
+            if turned >= a.turn_deg:
+                break
+        self.send("rc 4 1500", 0.0, phase=f"turned {turned:.0f} deg (from ATTITUDE.yawspeed) -> stop")
+        log(f"turned {turned:.0f} deg in {time.time() - t0:.1f} s")
+        time.sleep(1.5)
+        self.send(f"rc 2 {a.rc_fwd}", 0.0, phase=f"forward  vx = {vx:+.2f} m/s  ({a.t_fwd2:.0f} s)"); log(f"forward {a.t_fwd2:.0f} s"); time.sleep(a.t_fwd2)
+        self.send("rc 2 1500", 2.0, phase="stop")
+        self.send("mode hold", 0.0, phase="HOLD: twist forced to 0"); log("HOLD 3 s"); time.sleep(3.0)
+        self.send("mode manual", 1.5, phase="MANUAL")
         self.send("disarm force", 2.0, phase="DISARMED")
         log("sequence done")
+
+    # -- telemetry listener on MAVProxy's --out udp:14550 (ATTITUDE yaw for the closed-loop turn)
+    def start_telemetry(self):
+        try:
+            from pymavlink import mavutil
+        except ImportError:
+            self.telem = None
+            return
+        self.telem = mavutil.mavlink_connection("udpin:127.0.0.1:14550", source_system=254)
+
+    def reset_turn_integrator(self):
+        self._turn_rad = 0.0
+        self._turn_last_ms = None
+        if self.telem is not None:
+            while self.telem.recv_match(type="ATTITUDE", blocking=False) is not None:
+                pass
+
+    def turned_deg(self) -> float:
+        """Integrate ATTITUDE.yawspeed (rad/s, body z) over the message timestamps."""
+        if self.telem is None:
+            return 0.0
+        import math
+        while True:
+            m = self.telem.recv_match(type="ATTITUDE", blocking=False)
+            if m is None:
+                break
+            if self._turn_last_ms is not None:
+                dt = (m.time_boot_ms - self._turn_last_ms) * 1e-3
+                if 0.0 < dt < 1.0:
+                    self._turn_rad += m.yawspeed * dt
+            self._turn_last_ms = m.time_boot_ms
+        return math.degrees(self._turn_rad)
 
     def stop(self):
         for p in reversed(self.procs):
@@ -193,6 +245,7 @@ class Demo:
             self.start_sitl()
             time.sleep(1.5)
             self.start_mavproxy()
+            self.start_telemetry()
             self.sequence()
             if self.args.keep:
                 log("keeping plant + SITL + MAVProxy alive; Ctrl-C to quit")
@@ -221,9 +274,13 @@ def main() -> None:
     ap.add_argument("--rc-lat", type=int, default=1800)
     ap.add_argument("--rc-turn", type=int, default=2000, help="rc4 for the turn leg (2000 = MDK_WZ_MAX)")
     ap.add_argument("--boot-wait", type=float, default=12.0)
-    ap.add_argument("--t-stand", type=float, default=8.0)
-    ap.add_argument("--t-move", type=float, default=12.0)
-    ap.add_argument("--t-side", type=float, default=8.0)
+    ap.add_argument("--t-stand", type=float, default=6.0)
+    ap.add_argument("--t-fwd", type=float, default=3.0, help="first forward leg (s)")
+    ap.add_argument("--t-back", type=float, default=2.0, help="backward leg (s)")
+    ap.add_argument("--t-lat", type=float, default=2.0, help="lateral leg (s)")
+    ap.add_argument("--turn-deg", type=float, default=90.0, help="turn until ATTITUDE.yaw changed by this much")
+    ap.add_argument("--t-turn-max", type=float, default=8.0, help="turn timeout (s)")
+    ap.add_argument("--t-fwd2", type=float, default=5.0, help="forward leg after the turn (s)")
     args = ap.parse_args()
     if not ARDUROVER.exists():
         sys.exit(f"build the SITL first: cd ardupilot && ../.venv/bin/python ./waf rover  ({ARDUROVER} missing)")
