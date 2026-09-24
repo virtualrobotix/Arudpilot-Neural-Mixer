@@ -3,6 +3,7 @@ mujoco>=3.2
 onnx>=1.16
 onnxruntime>=1.18
 pymavlink>=2.4.40
+pyserial>=3.5
 # BAM XL330 voltage-model actuators (what the policies were trained with)
 better-actuator-models @ git+https://github.com/Rhoban/bam.git@mjlab_frictionloss
 colorama

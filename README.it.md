@@ -360,8 +360,26 @@ passa-basso lento sul gyro che alimenta la policy.
 Il tracking di velocità (~0,15–0,25 m/s a comando 0,4) è identico al rollout Python di riferimento sulla stessa
 pianta CPU: è il gap fra MuJoCo-CPU e il simulatore di training MuJoCo-Warp, non l'integrazione ArduPilot.
 
-Prossimi passi: backend Dynamixel per il feedback giunti sul robot reale; forward misurato su STM32H7;
-comandi twist da MAVLink GUIDED oltre agli stick.
+Prossimi passi: backend Dynamixel per il feedback giunti sul robot reale; comandi twist da MAVLink GUIDED
+oltre agli stick.
+
+### Risultato hardware Pixhawk 6C Mini
+
+`Pixhawk6C-MicroDuck` è un target ArduRover dedicato allo STM32H743 (480 MHz, flash 2 MB, RAM 1 MB).
+La MLP float32 entra disabilitando i sottosistemi Rover non usati dal MicroDuck: il firmware occupa
+1.942.616 byte e lascia 23.464 byte liberi. Le due policy float32 insieme non entrano nei 2 MB.
+
+Il firmware è stato caricato e provato su una Pixhawk 6C Mini reale. MuJoCo scambia stato
+`DEBUG_FLOAT_ARRAY` e attuazioni `SERVO_OUTPUT_RAW` via MAVLink USB usando
+[`scripts/hil_mavlink_mujoco.py`](scripts/hil_mavlink_mujoco.py). La latenza MLP misurata è
+**p50 4,945 ms, p99 4,975 ms** a 50 Hz; il carico CPU complessivo medio è **32,8%**, contro **5,4%**
+con `AP_MicroDuck` disabilitato. Un test HIL in piedi di 15 secondi è terminato con `PPO_FAIL=0`
+e inclinazione del tronco di circa 0,3–0,8°.
+
+```bash
+.venv/bin/mjpython scripts/hil_mavlink_mujoco.py \
+  --port /dev/cu.usbmodem11201 --configure --seconds 30
+```
 
 ---
 
