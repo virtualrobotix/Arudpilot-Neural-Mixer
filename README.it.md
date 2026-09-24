@@ -21,8 +21,8 @@ Non si dà nulla per scontato: il [glossario](#glossario) in fondo definisce ogn
 
 Video demo (68 s, script MAVProxy → ArduPilot → rete → MuJoCo, con i comandi MAVLink mostrati a schermo):
 [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
-Slide dell'architettura: [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) /
-[`.pptx`](docs/architettura-integrazione.pptx) — generate da `tools/build_architecture_slides.py`.
+Slide dell'architettura: **IT** [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) / [`.pptx`](docs/architettura-integrazione.pptx) ·
+EN [`docs/architecture-integration.pdf`](docs/architecture-integration.pdf) — entrambe generate da `tools/build_architecture_slides.py`.
 
 ---
 

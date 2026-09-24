@@ -21,8 +21,8 @@ defines every term used.
 
 Demo video (68 s, MAVProxy script → ArduPilot → network → MuJoCo, with the MAVLink commands shown on screen):
 [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
-Architecture slides (IT): [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) /
-[`.pptx`](docs/architettura-integrazione.pptx) — built by `tools/build_architecture_slides.py`.
+Architecture slides: **EN** [`docs/architecture-integration.pdf`](docs/architecture-integration.pdf) / [`.pptx`](docs/architecture-integration.pptx) ·
+IT [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) — both built by `tools/build_architecture_slides.py`.
 
 ---
 
