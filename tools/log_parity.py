@@ -53,13 +53,23 @@ def main() -> None:
 
     errs = []
     prev_act = None
+    prev_ts = None
     n_armed = 0
+    outliers = []
     for ts, m, q, v, a in ticks:
         if m.Fail != 0:
             prev_act = None
             continue
+        # disarmed ticks are not logged: a gap in the 50 Hz tick train means the firmware
+        # zeroed its action history in between
+        if prev_ts is not None and ts - prev_ts > 30000:
+            prev_act = None
+        prev_ts = ts
         if prev_act is None:
-            prev_act = np.zeros(14, np.float32)  # firmware zeroes the history while disarmed
+            # first logged tick of an armed segment: the logger opens on arm and drops the
+            # first few ticks, so the firmware's action history is unknown here — skip it
+            prev_act = a.astype(np.float32)
+            continue
         obs = np.zeros(61, np.float32)
         obs[0:3] = [m.GX, m.GY, m.GZ]
         obs[3:6] = [m.PGX, m.PGY, m.PGZ]
@@ -69,12 +79,17 @@ def main() -> None:
         obs[48:51] = [m.VX, m.VY, m.WZ]
         ref = sess.run(None, {in_name: obs[None]})[0][0]
         ref = np.clip(ref, -args.act_max, args.act_max)
-        errs.append(np.abs(ref - a).max())
+        e = np.abs(ref - a).max()
+        errs.append(e)
+        if e > 1e-3:
+            outliers.append((ts / 1e6, e))
         prev_act = a.astype(np.float32)
         n_armed += 1
     errs = np.array(errs)
     print(f"{log}: {n_armed} armed ticks replayed")
     print(f"max|onnx - firmware| = {errs.max():.3e}   p99 {np.percentile(errs, 99):.3e}   mean {errs.mean():.3e}")
+    if outliers:
+        print(f"{len(outliers)} tick(s) above 1e-3:", ", ".join(f"t={t:.2f}s err={e:.2e}" for t, e in outliers[:10]))
     print("PARITY", "OK" if errs.max() < 2e-3 else "FAIL")
 
 

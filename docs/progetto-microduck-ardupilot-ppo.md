@@ -3,7 +3,7 @@
 **Autore:** Roberto Navoni — DelphyAI LAB  
 **Contatto:** r.navoni74@gmail.com  
 **Data:** 24 settembre 2026  
-**Stato:** documento di progetto (pre-implementazione)  
+**Stato:** implementato e validato in SITL (§11); repo privato `virtualrobotix/microduck-ap-ppo-sitl`  
 **Disclaimer:** *Developed by Roberto Navoni : r.navoni74@gmail.com*
 
 Portare la policy PPO del MicroDuck (MLP e Cartan, 61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
@@ -159,7 +159,7 @@ Fork `virtualrobotix/ardupilot`, branch `microduck-ppo`, su `master` upstream ag
 | `libraries/SITL/SIM_JSON.cpp` | Parsing del campo opzionale `"joints": {"pos":[14], "vel":[14]}` → `AP_JointFeedback` |
 | `libraries/AP_JointFeedback/` | Singleton con timestamp; backend SITL (JSON) e, in futuro, Robotis |
 
-Parametri: `MDK_ENABLE`, `MDK_POLICY` (0 MLP, 1 Cartan), `MDK_VX_MAX`, `MDK_VY_MAX`, `MDK_WZ_MAX`, `MDK_WD_MS` (40), `MDK_ATT_SRC`, `MDK_IMU_LAG`.
+Parametri: `MDK_ENABLE`, `MDK_POLICY` (0 MLP, 1 Cartan), `MDK_VX_MAX`, `MDK_VY_MAX`, `MDK_WZ_MAX`, `MDK_WD_MS` (40), `MDK_ATT_SRC`, `MDK_ATT_TAU`, `MDK_RC_VX/VY/WZ`, `MDK_ACT_MAX`, `MDK_LOG`, `MDK_HOLD_MODE`, `MDK_SRV_FN0`. Nel file SITL vanno anche `INS_GYRO_FILTER 0` e `INS_ACCEL_FILTER 20` (vedi §11).
 
 Telemetria: `NAMED_VALUE_FLOAT` `PPO_MS` (tempo forward), `PPO_UP` (gz proiettata), `PPO_VX` (comando); messaggio DataFlash `PPO` con obs compressi e 14 azioni per il replay offline.
 
@@ -240,3 +240,34 @@ Su H743 (2 MB flash) entrambe stanno in flash in float32; INT8 (~190 / ~125 KB) 
 - **Quantizzazione PWM** (3 mrad/µs): accettabile per XL330 (risoluzione 1.5 mrad); su hardware si passa ai tick Robotis.
 - **Feedback giunti dai target** invece che dallo stato: la rete vede un robot “ideale” e diverge dalla realtà. Vietato come fallback silenzioso.
 - **Cartan in C**: operatore custom; MLP prima.
+
+---
+
+## 11. Stato dell'implementazione (24 settembre 2026)
+
+Repo: `virtualrobotix/microduck-ap-ppo-sitl` (privato) con il fork `virtualrobotix/ardupilot`, branch `microduck-ppo` (master upstream del 24/09 + `AP_MicroDuck`) come submodule.
+
+| Componente | Stato |
+|---|---|
+| `libraries/AP_MicroDuck` (obs 61, filtro gravità IMU-only, storia, stick→twist, forward C, `MDK_*`, log `MDK/MDKQ/MDKV/MDKA`, `PPO_*`) | fatto |
+| `SIM_JSON` con `joints{jpos,jvel}` → `sitl->state` → joint feedback | fatto |
+| Rover: `g2.microduck`, task 400 Hz (filtro) + 50 Hz (policy), servo Scripting1..14 | fatto |
+| Pianta MuJoCo (`plant/mujoco_json_plant.py`): scena e attuatori BAM del training, FRD/NED, lock-step 200 Hz | fatta |
+| Export pesi → C: MLP (`policy_mlp.h`, 773 KB) e Cartan+DiLU (`policy_cartan.h`, 496 KB) | fatti |
+| Batteria HIL (`scripts/hil_test.py`): arm, stand, avanti, laterale, rotazione, HOLD, disarm + parità in-situ | 8/8 PASS con MLP e con Cartan |
+
+Numeri misurati sul Mac (SITL, `-O2`):
+
+| | MLP | Cartan |
+|---|---|---|
+| Parità C vs ONNX (offline) | max 3.8e-6 | max 6.0e-5 |
+| Parità in-situ (obs del firmware → ONNX vs azioni del firmware) | max 2.5e-7 | p99 1.3e-6 |
+| Forward | ~0.37 ms | ~0.25 ms |
+| Stand 15 s / avanti 0.2 m/s / laterale / rotazione | nessuna caduta | nessuna caduta |
+| Avanti 0.3 e 0.4 m/s (15 s ciascuno) | nessuna caduta, ~0.15 m/s effettivi | — |
+
+**Lezione principale.** Il primo HIL cadeva dopo ~1 s pur con obs e rete corrette (parità perfetta). Causa: ArduRover ha `INS_GYRO_FILTER` **4 Hz** di default (veicolo a ruote), quindi il gyro entrava nella rete con decine di ms di ritardo e ampiezza dimezzata. Con `INS_GYRO_FILTER 0` (o 40 Hz) il duck sta in piedi e cammina. È esattamente il rischio “filtro diverso dal training” del §10, ma nell'IMU e non nell'assetto. Su hardware vale la stessa regola: nessun filtro lento sul gyro che alimenta la policy.
+
+Il tracking di velocità (~0.15 m/s a comando 0.4) è lo stesso del rollout Python sulla stessa pianta CPU: è il gap sim2sim MuJoCo-CPU vs mjlab, non l'integrazione ArduPilot.
+
+Prossimi passi: backend Dynamixel per il joint feedback su robot; benchmark del forward su STM32H7; twist da MAVLink GUIDED oltre agli stick.

@@ -46,17 +46,20 @@ def main() -> None:
     ap.add_argument("--header", default=None, help="existing generated header (default: generate in temp)")
     ap.add_argument("--cc", default="cc")
     ap.add_argument("--opt", default="-O2")
+    ap.add_argument("--kind", choices=["mlp", "cartan"], default="mlp")
     args = ap.parse_args()
 
+    exporter = "export_policy_c.py" if args.kind == "mlp" else "export_cartan_c.py"
+    harness = "parity_check.c" if args.kind == "mlp" else "parity_check_cartan.c"
     with tempfile.TemporaryDirectory() as td:
         td = Path(td)
         header = Path(args.header) if args.header else td / f"policy_{args.name}.h"
         if not args.header:
-            subprocess.run([sys.executable, str(HERE / "export_policy_c.py"), args.onnx_path, "--out", str(header), "--name", args.name], check=True)
+            subprocess.run([sys.executable, str(HERE / exporter), args.onnx_path, "--out", str(header), "--name", args.name], check=True)
         exe = td / "parity"
         cmd = [args.cc, args.opt, "-std=c11", "-Wall", "-Wextra",
                f"-DPOLICY_HEADER=\"{header}\"", f"-DPOLICY_PREFIX={args.name}", f"-DPOLICY_PREFIX_U={args.name.upper()}",
-               "-I", str(HERE), str(HERE / "parity_check.c"), str(HERE / "microduck_infer.c"), "-o", str(exe), "-lm"]
+               "-I", str(HERE), str(HERE / harness), str(HERE / "microduck_infer.c"), "-o", str(exe), "-lm"]
         subprocess.run(cmd, check=True)
 
         rng = np.random.default_rng(0)

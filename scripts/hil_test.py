@@ -188,12 +188,33 @@ def main() -> None:
     ap.add_argument("--url", default="tcp:127.0.0.1:5760")
     ap.add_argument("--policy", type=int, default=0)
     ap.add_argument("--vx-expect", type=float, default=0.2, help="expected PPO_VX for RC2=1750 (0.5 * MDK_VX_MAX)")
+    ap.add_argument("--log-dir", default="sitl/run/logs", help="SITL dataflash dir for the in-situ parity check ('' to skip)")
+    ap.add_argument("--onnx", default=None, help="ONNX to replay (default: the policy selected by --policy)")
     args = ap.parse_args()
     link = Link(args.url)
     if args.cmd == "monitor":
         cmd_monitor(link, args)
         return
     results = cmd_battery(link, args)
+
+    # in-situ parity: replay the firmware's logged observations through the ONNX policy
+    if args.log_dir:
+        import glob
+        import os
+        import subprocess
+        from pathlib import Path
+
+        logs = sorted(glob.glob(os.path.join(args.log_dir, "*.BIN")), key=os.path.getmtime)
+        if logs:
+            here = Path(__file__).resolve().parents[1]
+            onnx = args.onnx or str(here / "policies" / ("microduck_cartan_ac_2048x2000_it1999.onnx" if args.policy == 1
+                                                          else "microduck_mlp_2048x2000_it1999.onnx"))
+            link.pump(1.0, quiet=True)  # let the logger flush
+            out = subprocess.run([sys.executable, str(here / "tools" / "log_parity.py"), logs[-1], onnx],
+                                 capture_output=True, text=True)
+            print(out.stdout.strip())
+            check("parity", "PARITY OK" in out.stdout, out.stdout.strip().splitlines()[1] if out.stdout else out.stderr[-200:], results)
+
     n_fail = sum(1 for _, ok, _ in results if not ok)
     print("\n[hil] SUMMARY")
     for name, ok, detail in results:
