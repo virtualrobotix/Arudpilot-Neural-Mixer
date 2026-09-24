@@ -279,7 +279,7 @@ class Overlay:
         W = self.width
         # header: the chain
         d.rectangle([0, 0, W, 30], fill=(10, 20, 35, 200))
-        d.text((10, 6), "MAVProxy (script)  --MAVLink tcp:5760-->  ArduRover SITL [AP_MicroDuck PPO 50 Hz]  --SIM_JSON udp:9002/9003-->  MuJoCo",
+        d.text((10, 6), "MAVProxy script --MAVLink tcp:5760--> ArduRover SITL [AP_MicroDuck PPO 50 Hz] --SIM_JSON udp--> MuJoCo",
                font=self.font_b, fill=(230, 235, 245, 255))
         # command panel (top-left, below header)
         x0, y0, pw = 10, 40, 470
@@ -349,6 +349,11 @@ class VideoRecorder:
         self.next_t = self.plant.t + 1.0 / self.fps
         d = self.plant.data
         self.cam.lookat[:] = d.qpos[self.plant.free_qpos : self.plant.free_qpos + 3]
+        if self.overlay is not None:
+            # keep the robot in the right part of the frame; the command panel lives on the left
+            az = math.radians(self.cam.azimuth)
+            self.cam.lookat[0] += 0.25 * -math.sin(az)
+            self.cam.lookat[1] += 0.25 * math.cos(az)
         self.cam.lookat[2] = 0.08
         self.renderer.update_scene(d, camera=self.cam)
         frame = self.renderer.render()

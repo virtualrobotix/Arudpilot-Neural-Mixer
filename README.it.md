@@ -19,7 +19,10 @@ Non si dà nulla per scontato: il [glossario](#glossario) in fondo definisce ogn
    mode HOLD, param                         AP_InertialSensor ◀── backend SITL JSON ◀────udp:9003 (imu, quat, giunti)────┘
 ```
 
-Video demo (50 s, script MAVProxy → ArduPilot → rete → MuJoCo): [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4)
+Video demo (68 s, script MAVProxy → ArduPilot → rete → MuJoCo, con i comandi MAVLink mostrati a schermo):
+[`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
+Slide dell'architettura: [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) /
+[`.pptx`](docs/architettura-integrazione.pptx) — generate da `tools/build_architecture_slides.py`.
 
 ---
 

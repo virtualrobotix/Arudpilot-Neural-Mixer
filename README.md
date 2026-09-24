@@ -19,7 +19,10 @@ defines every term used.
    mode HOLD, params                        AP_InertialSensor ◀── SITL JSON backend ◀────udp:9003 (imu, quat, joints)────┘
 ```
 
-Demo video (50 s, MAVProxy script → ArduPilot → network → MuJoCo): [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4)
+Demo video (68 s, MAVProxy script → ArduPilot → network → MuJoCo, with the MAVLink commands shown on screen):
+[`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
+Architecture slides (IT): [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) /
+[`.pptx`](docs/architettura-integrazione.pptx) — built by `tools/build_architecture_slides.py`.
 
 ---
 

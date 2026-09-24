@@ -34,8 +34,33 @@ RUN_DIR = ROOT / "sitl" / "run"
 PARM = ROOT / "sitl" / "microduck.parm"
 
 
+OVERLAY = RUN_DIR / "overlay.jsonl"
+
+
 def log(msg: str) -> None:
     print(f"\033[1;36m[demo]\033[0m {msg}", flush=True)
+
+
+def mavlink_for(cmd: str) -> str:
+    """The MAVLink message MAVProxy emits for a console command (for the video panel)."""
+    p = cmd.split()
+    if not p:
+        return ""
+    if p[0] == "rc" and len(p) >= 3:
+        ch = "all channels" if p[1] == "all" else f"chan{p[1]}"
+        return f"RC_CHANNELS_OVERRIDE  {ch}={p[2]} us  (sysid 255 -> RC_Channels)"
+    if p[0] == "arm":
+        return "COMMAND_LONG  MAV_CMD_COMPONENT_ARM_DISARM  param1=1" + ("  param2=21196 (force)" if "force" in p else "")
+    if p[0] == "disarm":
+        return "COMMAND_LONG  MAV_CMD_COMPONENT_ARM_DISARM  param1=0" + ("  param2=21196 (force)" if "force" in p else "")
+    if p[0] == "mode" and len(p) >= 2:
+        modes = {"manual": 0, "acro": 1, "steering": 3, "hold": 4, "guided": 15}
+        return f"COMMAND_LONG  MAV_CMD_DO_SET_MODE  custom_mode={modes.get(p[1].lower(), '?')} ({p[1].upper()})"
+    if p[0] == "param" and len(p) >= 4 and p[1] == "set":
+        return f"PARAM_SET  {p[2]} = {p[3]}"
+    if p[0] == "module":
+        return "(local MAVProxy module)"
+    return "(MAVProxy local command)"
 
 
 def ensure_libpython_for_mjpython() -> None:
@@ -57,6 +82,10 @@ class Demo:
         self.args = args
         self.procs: list[subprocess.Popen] = []
         self.mav: subprocess.Popen | None = None
+        self.phase = "boot"
+        if args.video is not None:
+            RUN_DIR.mkdir(parents=True, exist_ok=True)
+            OVERLAY.write_text("")
 
     def start_plant(self):
         # macOS: mujoco.viewer.launch_passive needs the mjpython launcher shipped with the mujoco wheel
@@ -70,7 +99,7 @@ class Demo:
         if self.args.no_bam:
             cmd.append("--no-bam")
         if self.args.video:
-            cmd += ["--video", str(self.args.video)]
+            cmd += ["--video", str(self.args.video), "--overlay", str(OVERLAY)]
         env = dict(os.environ, PYTHONUNBUFFERED="1")
         p = subprocess.Popen(cmd, env=env)
         self.procs.append(p)
@@ -97,9 +126,19 @@ class Demo:
         self.procs.append(self.mav)
         log("MAVProxy started")
 
-    def send(self, line: str, wait: float = 0.0):
+    def note(self, cmd: str, mavlink: str, phase: str):
+        """Append an event for the video overlay panel (read by the plant's VideoRecorder)."""
+        self.phase = phase or self.phase
+        if self.args.video is None:
+            return
+        import json
+        with open(OVERLAY, "a") as f:
+            f.write(json.dumps({"t": time.time(), "cmd": cmd, "mavlink": mavlink, "phase": self.phase}) + "\n")
+
+    def send(self, line: str, wait: float = 0.0, phase: str = ""):
         assert self.mav and self.mav.stdin
         log(f"MAVProxy> {line}")
+        self.note(line, mavlink_for(line), phase)
         self.mav.stdin.write(line + "\n")
         self.mav.stdin.flush()
         if wait > 0:
@@ -112,23 +151,27 @@ class Demo:
         if a.graph:
             self.send("module load graph", 1.0)
             self.send("graph NAMED_VALUE_FLOAT[PPO_PGZ].value NAMED_VALUE_FLOAT[PPO_VX].value NAMED_VALUE_FLOAT[PPO_FAIL].value", 1.0)
-        self.send(f"param set MDK_POLICY {a.policy}", 1.0)
+        pol = "Cartan" if a.policy == 1 else "MLP"
+        self.send(f"param set MDK_POLICY {a.policy}", 1.0, phase=f"setup: policy {pol}")
         self.send("param set MDK_ENABLE 1", 1.0)
         self.send("mode manual", 1.0)
-        self.send("rc all 1500", 1.0)
-        self.send("arm throttle force", 1.0)
+        self.send("rc all 1500", 1.0, phase="sticks centred")
+        self.send("arm throttle force", 1.0, phase=f"ARMED - standing ({pol})")
         log(f"stand {a.t_stand:.0f} s")
         time.sleep(a.t_stand)
         # full stick forward: on the CPU plant the MLP only really walks at 0.3-0.4 m/s of command
-        self.send(f"rc 2 {a.rc_fwd}", 0.0); log(f"forward (rc2 {a.rc_fwd}) {a.t_move:.0f} s"); time.sleep(a.t_move)
-        self.send("rc 2 1500", 3.0)
-        self.send(f"rc 1 {a.rc_lat}", 0.0); log(f"lateral (rc1 {a.rc_lat}) {a.t_side:.0f} s"); time.sleep(a.t_side)
-        self.send("rc 1 1500", 3.0)
-        self.send(f"rc 4 {a.rc_turn}", 0.0); log(f"turn (rc4 {a.rc_turn}) {a.t_side:.0f} s"); time.sleep(a.t_side)
-        self.send("rc 4 1500", 2.0)
-        self.send("mode hold", 0.0); log("HOLD 5 s (twist forced to 0)"); time.sleep(5.0)
-        self.send("mode manual", 2.0)
-        self.send("disarm force", 2.0)
+        vx = (a.rc_fwd - 1500) / 500 * 0.4
+        self.send(f"rc 2 {a.rc_fwd}", 0.0, phase=f"forward  vx = {vx:+.2f} m/s"); log(f"forward (rc2 {a.rc_fwd}) {a.t_move:.0f} s"); time.sleep(a.t_move)
+        self.send("rc 2 1500", 3.0, phase="stop")
+        vy = (a.rc_lat - 1500) / 500 * 0.3
+        self.send(f"rc 1 {a.rc_lat}", 0.0, phase=f"lateral  vy = {vy:+.2f} m/s"); log(f"lateral (rc1 {a.rc_lat}) {a.t_side:.0f} s"); time.sleep(a.t_side)
+        self.send("rc 1 1500", 3.0, phase="stop")
+        wz = (a.rc_turn - 1500) / 500 * 1.0
+        self.send(f"rc 4 {a.rc_turn}", 0.0, phase=f"turn  wz = {wz:+.2f} rad/s"); log(f"turn (rc4 {a.rc_turn}) {a.t_side:.0f} s"); time.sleep(a.t_side)
+        self.send("rc 4 1500", 2.0, phase="stop")
+        self.send("mode hold", 0.0, phase="HOLD: twist forced to 0"); log("HOLD 5 s (twist forced to 0)"); time.sleep(5.0)
+        self.send("mode manual", 2.0, phase="MANUAL")
+        self.send("disarm force", 2.0, phase="DISARMED")
         log("sequence done")
 
     def stop(self):
