@@ -226,6 +226,56 @@ class Plant:
             self.viewer.sync()
 
 
+class VideoRecorder:
+    """Offscreen render of the plant to an mp4 (ffmpeg pipe), camera tracking the trunk."""
+
+    def __init__(self, plant: Plant, path: Path, fps: float = 25.0, width: int = 960, height: int = 540):
+        import shutil
+        import subprocess
+
+        ffmpeg = shutil.which("ffmpeg")
+        if ffmpeg is None:
+            raise RuntimeError("ffmpeg not found")
+        self.plant = plant
+        self.fps = fps
+        # the scene's offscreen framebuffer defaults to 640x480; enlarge it for the recording
+        plant.model.vis.global_.offwidth = max(plant.model.vis.global_.offwidth, width)
+        plant.model.vis.global_.offheight = max(plant.model.vis.global_.offheight, height)
+        self.renderer = mujoco.Renderer(plant.model, height=height, width=width)
+        self.cam = mujoco.MjvCamera()
+        self.cam.type = mujoco.mjtCamera.mjCAMERA_FREE
+        self.cam.distance = 0.9
+        self.cam.azimuth = 135.0
+        self.cam.elevation = -18.0
+        self.proc = subprocess.Popen(
+            [ffmpeg, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{width}x{height}",
+             "-r", str(fps), "-i", "-", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20", str(path)],
+            stdin=subprocess.PIPE,
+        )
+        self.next_t = 0.0
+        self.n = 0
+        self.path = path
+
+    def maybe_capture(self, label: str = ""):
+        if self.plant.t < self.next_t:
+            return
+        self.next_t = self.plant.t + 1.0 / self.fps
+        d = self.plant.data
+        self.cam.lookat[:] = d.qpos[self.plant.free_qpos : self.plant.free_qpos + 3]
+        self.cam.lookat[2] = 0.08
+        self.renderer.update_scene(d, camera=self.cam)
+        frame = self.renderer.render()
+        if self.proc.stdin is not None:
+            self.proc.stdin.write(frame.tobytes())
+        self.n += 1
+
+    def close(self):
+        if self.proc.stdin is not None:
+            self.proc.stdin.close()
+        self.proc.wait(timeout=30)
+        print(f"[plant] video: {self.n} frames -> {self.path}")
+
+
 def pwm_to_rad(pwm: np.ndarray) -> np.ndarray:
     q = (pwm.astype(np.float64) - PWM_CENTER) * RAD_PER_US
     return np.clip(q, -2.2, 2.2)
@@ -243,6 +293,7 @@ def main() -> None:
     ap.add_argument("--debug-frames", type=int, default=8, help="print the first N driving frames (PWM, targets)")
     ap.add_argument("--record", type=Path, default=None,
                     help="record per-frame truth (t, gyro FLU, gravity FLU, jpos, jvel, pwm) to this .npz on exit")
+    ap.add_argument("--video", type=Path, default=None, help="record an mp4 of the plant (offscreen render, 25 fps) while driving")
     args = ap.parse_args()
 
     if not args.mjcf.exists():
@@ -262,6 +313,13 @@ def main() -> None:
     debug_left = 0
     frames = 0
     rec: list = []
+    video = None
+    if args.video is not None:
+        try:
+            video = VideoRecorder(plant, args.video)
+            print(f"[plant] recording video to {args.video}")
+        except Exception as e:  # noqa: BLE001
+            print(f"[plant] video disabled ({e!r})")
     t_stat = time.perf_counter()
     last_view = 0.0
     view_period = 1.0 / 30.0
@@ -311,6 +369,8 @@ def main() -> None:
             sens = plant.sensors()
             msg = json.dumps(sens, separators=(",", ":"))
             sock.sendto(("\n" + msg + "\n").encode(), addr)
+            if video is not None and driving:
+                video.maybe_capture()
             if args.record is not None and driving:
                 d = plant.data
                 q = d.xquat[plant.trunk_id]
@@ -336,6 +396,8 @@ def main() -> None:
     except KeyboardInterrupt:
         pass
     finally:
+        if video is not None:
+            video.close()
         if args.record is not None and rec:
             arr = np.array(rec)
             np.savez(args.record, t=arr[:, 0], frame=arr[:, 1], gyro_flu=arr[:, 2:5], grav_flu=arr[:, 5:8],

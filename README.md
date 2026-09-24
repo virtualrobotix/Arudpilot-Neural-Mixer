@@ -33,6 +33,7 @@ plant/mujoco_json_plant.py  ──UDP 9002 (PWM 14 ch)──▶  ardurover SITL 
 | `sitl/microduck.parm` | parametri SITL: servo 1–14 = Scripting1..14, `SIM_RATE_HZ 200`, `INS_GYRO_FILTER 0`, `MDK_ENABLE 1` |
 | `scripts/run_plant.sh`, `scripts/run_sitl.sh` | avvio pianta e SITL (MAVProxy console) |
 | `scripts/hil_test.py` | batteria HIL automatica via MAVLink (arm, stand, avanti, laterale, rotazione, HOLD, disarm) |
+| `scripts/demo_mavproxy.py` | demo visiva: pianta con viewer + SITL + MAVProxy pilotato da script (`--video` registra un mp4) |
 
 ## Setup
 
@@ -45,12 +46,29 @@ cd ardupilot && git submodule update --init --recursive --depth 1
 
 La pianta usa la scena MuJoCo del repo NOESIS (`MICRODUCK_MJCF` per cambiarla).
 
-## Uso
+## Demo completa in un comando
+
+```bash
+.venv/bin/python scripts/demo_mavproxy.py                 # MLP, viewer MuJoCo + SITL + MAVProxy
+.venv/bin/python scripts/demo_mavproxy.py --policy 1      # Cartan
+.venv/bin/python scripts/demo_mavproxy.py --video docs/media/demo.mp4 --keep
+```
+
+Avvia pianta (finestra MuJoCo), ArduRover SITL e MAVProxy, poi digita in MAVProxy la sequenza di un operatore:
+`arm throttle` → 8 s in piedi → `rc 2 2000` avanti 12 s → `rc 1 1800` laterale → `rc 4 2000` rotazione →
+`mode hold` → `mode manual` → `disarm`. Con `--keep` resta tutto acceso alla fine. Video di esempio:
+[`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4) (~2.6 m in avanti in 12 s, nessuna caduta).
+
+Su macOS il viewer richiede `mjpython`; lo script lo usa da solo e crea il link `.venv/lib/libpython3.12.dylib`
+che manca ai Python gestiti da `uv`. `--console` e `--graph` (finestre MAVProxy) richiedono wxPython nel Python
+di MAVProxy.
+
+## Uso manuale
 
 Terminale 1 — pianta (viewer MuJoCo):
 
 ```bash
-scripts/run_plant.sh
+.venv/bin/mjpython plant/mujoco_json_plant.py      # macOS (viewer); Linux: scripts/run_plant.sh
 ```
 
 Terminale 2 — SITL + MAVProxy:
