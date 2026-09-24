@@ -23,6 +23,7 @@ Video demo (68 s, script MAVProxy → ArduPilot → rete → MuJoCo, con i coman
 [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
 Slide dell'architettura: **IT** [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) / [`.pptx`](docs/architettura-integrazione.pptx) ·
 EN [`docs/architecture-integration.pdf`](docs/architecture-integration.pdf) — entrambe generate da `tools/build_architecture_slides.py`.
+Slide del brevetto (AI Autopilot neuro-adattivo, Patent Pending 102026000009919): **EN** [`docs/AI-Autopilot-Patent-Presentation-EN.pdf`](docs/AI-Autopilot-Patent-Presentation-EN.pdf) / [`.pptx`](docs/AI-Autopilot-Patent-Presentation-EN.pptx).
 
 ---
 
@@ -381,7 +382,7 @@ comandi twist da MAVLink GUIDED oltre agli stick.
 | `scripts/run_plant.sh`, `scripts/run_sitl.sh` | avvio |
 | `scripts/hil_test.py` | batteria automatica |
 | `scripts/demo_mavproxy.py` | demo visiva pilotata via MAVProxy |
-| `docs/` | documento di progetto (IT), video demo |
+| `docs/` | documento di progetto (IT), slide architettura, slide brevetto (EN), video demo |
 
 ---
 
