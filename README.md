@@ -21,9 +21,8 @@ defines every term used.
 
 Demo video (68 s, MAVProxy script → ArduPilot → network → MuJoCo, with the MAVLink commands shown on screen):
 [`docs/media/demo_mavproxy_mlp.mp4`](docs/media/demo_mavproxy_mlp.mp4).
-Architecture slides: **EN** [`docs/architecture-integration.pdf`](docs/architecture-integration.pdf) / [`.pptx`](docs/architecture-integration.pptx) ·
-IT [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) — both built by `tools/build_architecture_slides.py`.
-Patent slides (neuro-adaptive AI Autopilot, Patent Pending 102026000009919): **EN** [`docs/AI-Autopilot-Patent-Presentation-EN.pdf`](docs/AI-Autopilot-Patent-Presentation-EN.pdf) / [`.pptx`](docs/AI-Autopilot-Patent-Presentation-EN.pptx).
+Architecture slides: **EN** [`docs/architecture-integration.pptx`](docs/architecture-integration.pptx) ·
+IT [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) / [`.pptx`](docs/architettura-integrazione.pptx) — built by `tools/build_architecture_slides.py`.
 
 ---
 
@@ -383,7 +382,7 @@ approximately 0.3–0.8° trunk tilt.
 | `scripts/run_plant.sh`, `scripts/run_sitl.sh` | launchers |
 | `scripts/hil_test.py` | automatic battery |
 | `scripts/demo_mavproxy.py` | visual demo driven through MAVProxy |
-| `docs/` | project document (IT), architecture slides, patent slides (EN), demo video |
+| `docs/` | project document (IT), architecture slides, demo video |
 
 ---
 
