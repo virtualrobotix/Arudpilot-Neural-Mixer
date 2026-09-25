@@ -207,8 +207,7 @@ def main() -> None:
         logs = sorted(glob.glob(os.path.join(args.log_dir, "*.BIN")), key=os.path.getmtime)
         if logs:
             here = Path(__file__).resolve().parents[1]
-            onnx = args.onnx or str(here / "policies" / ("microduck_cartan_ac_2048x2000_it1999.onnx" if args.policy == 1
-                                                          else "microduck_mlp_2048x2000_it1999.onnx"))
+            onnx = args.onnx or str(here / "policies" / "microduck_mlp_2048x2000_it1999.onnx")
             link.pump(1.0, quiet=True)  # let the logger flush
             out = subprocess.run([sys.executable, str(here / "tools" / "log_parity.py"), logs[-1], onnx],
                                  capture_output=True, text=True)
