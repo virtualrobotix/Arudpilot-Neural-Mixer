@@ -317,7 +317,7 @@ def build(lang: str, out: Path) -> None:
          align=PP_ALIGN.CENTER)
     text(s, Inches(0.8), Inches(3.6), Inches(11.7), Inches(1.6),
          [("Roberto Navoni — DelphyAI LAB · r.navoni74@gmail.com · 24 settembre 2026", {"size": 14, "color": GREY}),
-          ("Repo: github.com/virtualrobotix/microduck-ap-ppo-sitl  ·  fork ArduPilot: virtualrobotix/ardupilot @ microduck-ppo", {"size": 13, "color": GREY})],
+          ("Repo: github.com/virtualrobotix/Arudpilot-Neural-Mixer  ·  fork ArduPilot: virtualrobotix/ardupilot @ microduck-ppo", {"size": 13, "color": GREY})],
          align=PP_ALIGN.CENTER)
     text(s, Inches(1.2), Inches(5.2), Inches(10.9), Inches(1.2),
          "Un solo firmware ArduRover. La rete neurale (61 osservazioni → 14 servo, 50 Hz) è un task dello scheduler. "

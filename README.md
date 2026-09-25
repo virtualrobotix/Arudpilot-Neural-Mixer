@@ -267,8 +267,8 @@ Telemetry: `PPO_MS` forward time, `PPO_PGZ` gravity z (standing ≈ −1), `PPO_
 macOS or Linux. Requires `uv` (or any Python 3.11/3.12), `ffmpeg` (video), `mavproxy.py`, a C toolchain.
 
 ```bash
-git clone --recurse-submodules https://github.com/virtualrobotix/microduck-ap-ppo-sitl.git
-cd microduck-ap-ppo-sitl
+git clone --recurse-submodules https://github.com/virtualrobotix/Arudpilot-Neural-Mixer.git
+cd Arudpilot-Neural-Mixer
 uv venv --python 3.12 && uv pip install -r requirements.txt
 cd ardupilot && git submodule update --init --recursive --depth 1
 ../.venv/bin/python ./waf configure --board sitl && ../.venv/bin/python ./waf rover && cd ..

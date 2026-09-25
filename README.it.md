@@ -262,8 +262,8 @@ Telemetria: `PPO_MS` tempo del forward, `PPO_PGZ` gravità z (in piedi ≈ −1)
 macOS o Linux. Servono `uv` (o un Python 3.11/3.12), `ffmpeg` (video), `mavproxy.py`, una toolchain C.
 
 ```bash
-git clone --recurse-submodules https://github.com/virtualrobotix/microduck-ap-ppo-sitl.git
-cd microduck-ap-ppo-sitl
+git clone --recurse-submodules https://github.com/virtualrobotix/Arudpilot-Neural-Mixer.git
+cd Arudpilot-Neural-Mixer
 uv venv --python 3.12 && uv pip install -r requirements.txt
 cd ardupilot && git submodule update --init --recursive --depth 1
 ../.venv/bin/python ./waf configure --board sitl && ../.venv/bin/python ./waf rover && cd ..
