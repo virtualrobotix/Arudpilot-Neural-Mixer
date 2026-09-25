@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay the observations AP_MicroDuck logged (MDK/MDKQ/MDKV/MDKA) through the ONNX policy and
+"""Replay the observations AP_NNMixer logged (NNM/NNMQ/NNMV/NNMA) through the ONNX policy and
 compare with the actions the firmware actually produced. Proves the C forward + observation
 assembly in the firmware are the network the lab validated.
 
@@ -25,13 +25,13 @@ def load_ticks(path: str):
         if m is None:
             break
         t = m.get_type()
-        if t == "MDK":
+        if t == "NNM":
             mdk[m.TimeUS] = m
-        elif t == "MDKQ":
+        elif t == "NNMQ":
             q[m.TimeUS] = [getattr(m, f"Q{i}") for i in range(14)]
-        elif t == "MDKV":
+        elif t == "NNMV":
             v[m.TimeUS] = [getattr(m, f"V{i}") for i in range(14)]
-        elif t == "MDKA":
+        elif t == "NNMA":
             a[m.TimeUS] = [getattr(m, f"A{i}") for i in range(14)]
     ticks = []
     for ts in sorted(mdk):

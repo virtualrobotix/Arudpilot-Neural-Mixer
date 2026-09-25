@@ -1,4 +1,4 @@
-# MicroDuck su ArduPilot — task PPO nel firmware, MuJoCo come pianta SITL
+# NNMixer su ArduPilot — task PPO nel firmware, MuJoCo come pianta SITL
 
 **Autore:** Roberto Navoni — DelphyAI LAB  
 **Contatto:** r.navoni74@gmail.com  
@@ -6,7 +6,7 @@
 **Stato:** implementato e validato in SITL (§11); repo privato `virtualrobotix/microduck-ap-ppo-sitl`  
 **Disclaimer:** *Developed by Roberto Navoni : r.navoni74@gmail.com*
 
-Portare la policy PPO MLP del MicroDuck (61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
+Portare la policy PPO MLP del NNMixer (61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
 
 Documenti collegati: training e reti validate nel laboratorio NOESIS EXPERIMENT.
 
@@ -16,7 +16,7 @@ Documenti collegati: training e reti validate nel laboratorio NOESIS EXPERIMENT.
 
 | Vincolo | Motivo |
 |---|---|
-| **Un solo binario** ArduPilot (Rover + `AP_MicroDuck`) | Il target finale è lo stesso MCU dell’autopilota. Niente companion, niente secondo SITL |
+| **Un solo binario** ArduPilot (Rover + `AP_NNMixer`) | Il target finale è lo stesso MCU dell’autopilota. Niente companion, niente secondo SITL |
 | **Inerziali solo da ArduPilot** (`AP_InertialSensor`) | Il task non deve sapere che esiste MuJoCo. Sostituire il simulatore con IMU + XL330 reali non cambia una riga |
 | **Contratto rete immutato** | 61 float32 SI in ingresso, 14 float32 rad in uscita, 50 Hz, `q_target = q0 + a`. Nessun riaddestramento |
 | **Inferenza in C puro** (float32) | Nessun ONNX Runtime nel firmware: lo stesso codice compila su SITL e su STM32. ONNX serve solo ai test di parità in Python |
@@ -35,7 +35,7 @@ flowchart LR
     JFB[Joint feedback q qd]
     RC[RC / MAVLink stick]
     HIST[History 50 Hz a_prev]
-    OBS[AP_MicroDuck build_obs 61]
+    OBS[AP_NNMixer build_obs 61]
     NET[Forward C: mean/std + MLP]
     SRV[SRV_Channels 14 servo]
     INS --> CF --> OBS
@@ -59,12 +59,12 @@ flowchart LR
   GCS <--> NET
 ```
 
-Il loop chiuso è **MuJoCo → SITL → INS → AP_MicroDuck → SRV → SITL → MuJoCo**. Il task PPO vede solo API ArduPilot.
+Il loop chiuso è **MuJoCo → SITL → INS → AP_NNMixer → SRV → SITL → MuJoCo**. Il task PPO vede solo API ArduPilot.
 
 ### 2.1 Loop a 50 Hz (identico in SITL e su MCU)
 
 1. `AP_InertialSensor` fornisce gyro e accel body (frame FRD di ArduPilot).
-2. Un filtro assetto **IMU-only** (complementare/Mahony, dentro `AP_MicroDuck`) dà il quaternion trunk → gravity proiettata. EKF3 **non** entra nell’osservazione.
+2. Un filtro assetto **IMU-only** (complementare/Mahony, dentro `AP_NNMixer`) dà il quaternion trunk → gravity proiettata. EKF3 **non** entra nell’osservazione.
 3. Joint feedback: 14 posizioni e velocità (in SITL dal JSON di MuJoCo, sul robot dal bus Dynamixel).
 4. Stick / MAVLink → twist `vx, vy, ωz` in SI.
 5. `build_obs()` concatena i 61 float32 (con `a_prev` dal buffer storia).
@@ -112,14 +112,14 @@ Conseguenze per ArduPilot:
 
 ### 4.1 IMU: frame e filtro
 
-ArduPilot lavora in **FRD** (x avanti, y destra, z giù). Il trunk MicroDuck in MuJoCo è **FLU** (x avanti, y sinistra, z su). Conversione:
+ArduPilot lavora in **FRD** (x avanti, y destra, z giù). Il trunk NNMixer in MuJoCo è **FLU** (x avanti, y sinistra, z su). Conversione:
 
 - gyro: `(ωx, −ωy, −ωz)`
 - gravità: in FRD a robot livellato è `[0,0,+1]`; in FLU diventa `[0,0,−1]` con `(gx, −gy, −gz)`.
 
 A questo si somma la rotazione fissa di montaggio IMU→trunk (parametro, identità in SITL).
 
-Sorgente dell’assetto: in training la gravity proiettata viene dal quaternion IMU (con domain randomization sul disallineamento), sul robot Pollen dal filtro SFLP del chip IMU. L’analogo su ArduPilot è un **filtro complementare su gyro+accel grezzi** dentro `AP_MicroDuck` (poche righe, costa nulla su MCU, nessuna dipendenza da EKF/GPS). Parametro `MDK_ATT_SRC` per confrontare con il quaternion `AP_AHRS` in fase di debug.
+Sorgente dell’assetto: in training la gravity proiettata viene dal quaternion IMU (con domain randomization sul disallineamento), sul robot Pollen dal filtro SFLP del chip IMU. L’analogo su ArduPilot è un **filtro complementare su gyro+accel grezzi** dentro `AP_NNMixer` (poche righe, costa nulla su MCU, nessuna dipendenza da EKF/GPS). Parametro `NNM_ATT_SRC` per confrontare con il quaternion `AP_AHRS` in fase di debug.
 
 ### 4.2 Storia
 
@@ -128,7 +128,7 @@ La rete non è Markov sui soli sensori. Il task tiene un buffer a 50 Hz:
 - `a_prev[14]`: l’azione **effettivamente inviata** al passo precedente (dopo clip e watchdog), non il raw della rete;
 - al boot `a_prev = 0`; su timeout o disarm `a_prev = 0`.
 
-Se in training è attivo un ritardo 0–1 step sul gyro, lo stesso FIFO va replicato qui (`MDK_IMU_LAG`).
+Se in training è attivo un ritardo 0–1 step sul gyro, lo stesso FIFO va replicato qui (`NNM_IMU_LAG`).
 
 ### 4.3 Feedback attuatori
 
@@ -138,9 +138,9 @@ Gli slice `[6:34]` devono venire dallo **stato reale** dei giunti, non dal targe
 
 Da RC (`RC_Channels`) o MAVLink (`MANUAL_CONTROL`, `SET_POSITION_TARGET_LOCAL_NED` in GUIDED):
 
-- `vx = norm(ch_pitch) × MDK_VX_MAX` (0.4 m/s)
-- `vy = norm(ch_roll) × MDK_VY_MAX` (0.3 m/s)
-- `ωz = norm(ch_yaw) × MDK_WZ_MAX` (1.0 rad/s) — è una velocità angolare, non m/s
+- `vx = norm(ch_pitch) × NNM_VX_MAX` (0.4 m/s)
+- `vy = norm(ch_roll) × NNM_VY_MAX` (0.3 m/s)
+- `ωz = norm(ch_yaw) × NNM_WZ_MAX` (1.0 rad/s) — è una velocità angolare, non m/s
 
 `norm()` porta 1000–2000 µs in [−1, 1] con deadzone. Modalità: `MANUAL` = stick; `HOLD` = twist 0 (stand); disarmato = `a = 0` e coppia off. Failsafe RC → twist 0.
 
@@ -152,14 +152,14 @@ Fork `virtualrobotix/ardupilot`, branch `microduck-ppo`, su `master` upstream ag
 
 | Componente | Cosa cambia |
 |---|---|
-| `libraries/AP_MicroDuck/` | Nuova libreria: `build_obs`, filtro assetto, storia, forward C, parametri `MDK_*`, logging |
-| `libraries/AP_MicroDuck/policy_mlp.h` | Pesi + `mean/std` come array `const float` generati da NOESIS |
-| `Rover/` | Task `AP_MicroDuck::update` a 50 Hz nella tabella scheduler; in `MANUAL`/`HOLD` l’uscita servo 1–14 è del task |
-| `libraries/SRV_Channel` | Funzioni `k_microduck_joint1..14`; PWM 1000–2000 ↔ rad con `pwm = 1500 + 500·q/(π/2)` (1 µs ≈ 3 mrad) |
+| `libraries/AP_NNMixer/` | Nuova libreria: `build_obs`, filtro assetto, storia, forward C, parametri `NNM_*`, logging |
+| `libraries/AP_NNMixer/policy_mlp.h` | Pesi + `mean/std` come array `const float` generati da NOESIS |
+| `Rover/` | Task `AP_NNMixer::update` a 50 Hz nella tabella scheduler; in `MANUAL`/`HOLD` l’uscita servo 1–14 è del task |
+| `libraries/SRV_Channel` | Funzioni `k_scripting1..14`; PWM 1000–2000 ↔ rad con `pwm = 1500 + 500·q/(π/2)` (1 µs ≈ 3 mrad) |
 | `libraries/SITL/SIM_JSON.cpp` | Parsing del campo opzionale `"joints": {"pos":[14], "vel":[14]}` → `AP_JointFeedback` |
 | `libraries/AP_JointFeedback/` | Singleton con timestamp; backend SITL (JSON) e, in futuro, Robotis |
 
-Parametri: `MDK_ENABLE`, `MDK_POLICY` (0 MLP), `MDK_VX_MAX`, `MDK_VY_MAX`, `MDK_WZ_MAX`, `MDK_WD_MS` (40), `MDK_ATT_SRC`, `MDK_ATT_TAU`, `MDK_RC_VX/VY/WZ`, `MDK_ACT_MAX`, `MDK_LOG`, `MDK_HOLD_MODE`, `MDK_SRV_FN0`. Nel file SITL vanno anche `INS_GYRO_FILTER 0` e `INS_ACCEL_FILTER 20` (vedi §11).
+Parametri: `NNM_ENABLE`, `NNM_POLICY` (0 MLP), `NNM_VX_MAX`, `NNM_VY_MAX`, `NNM_WZ_MAX`, `NNM_WD_MS` (40), `NNM_ATT_SRC`, `NNM_ATT_TAU`, `NNM_RC_VX/VY/WZ`, `NNM_ACT_MAX`, `NNM_LOG`, `NNM_HOLD_MODE`, `NNM_SRV_FN0`. Nel file SITL vanno anche `INS_GYRO_FILTER 0` e `INS_ACCEL_FILTER 20` (vedi §11).
 
 Telemetria: `NAMED_VALUE_FLOAT` `PPO_MS` (tempo forward), `PPO_UP` (gz proiettata), `PPO_VX` (comando); messaggio DataFlash `PPO` con obs compressi e 14 azioni per il replay offline.
 
@@ -192,7 +192,7 @@ Il lock-step del protocollo JSON garantisce che SITL e MuJoCo avanzino insieme: 
 2. **ArduPilot**: clone `master`, `Tools/environment_install/install-prereqs-mac.sh`, `./waf configure --board sitl`, `./waf rover`. Verifica che `sim_vehicle.py -v Rover -f JSON` parta con un plant vuoto.
 3. **Pianta MuJoCo**: script JSON con la scena attuale; test standalone con il SITL non modificato (IMU e posizione visibili in MAVProxy).
 4. **Export pesi** MLP da `.pt` → header C + `mean/std`; parità ONNX vs C.
-5. **`AP_MicroDuck`** + `AP_JointFeedback` + estensione `SIM_JSON`; task scheduler; parametri; logging.
+5. **`AP_NNMixer`** + `AP_JointFeedback` + estensione `SIM_JSON`; task scheduler; parametri; logging.
 6. **Validazione MAVProxy** (paragrafo 8) con MLP.
 7. Stima budget MCU (paragrafo 9).
 
@@ -204,7 +204,7 @@ Lancio: `sim_vehicle.py -v Rover -f JSON --console --map` con il plant MuJoCo at
 
 | Test | Comandi MAVProxy | Criterio |
 |---|---|---|
-| Parità obs | `param set MDK_ENABLE 1`; log `PPO` | Stesso stato MuJoCo → obs AP vs `infer_policy.get_observations`: errore < 1e-3 |
+| Parità obs | `param set NNM_ENABLE 1`; log `PPO` | Stesso stato MuJoCo → obs AP vs `infer_policy.get_observations`: errore < 1e-3 |
 | Frequenza | `status`, `PPO_MS` | 50 Hz ± 1 tick; forward p99 < 5 ms su Mac |
 | Stand | `arm throttle`, stick centrati 20 s | Nessuna caduta, `PPO_UP` ≈ −1 |
 | Avanti | `rc 2 1750` (≈ +0.2 m/s) 10 s | Velocità media MuJoCo entro ±30% del comando, nessuna caduta |
@@ -233,7 +233,7 @@ Su H743 (2 MB flash) la MLP sta in flash in float32; INT8 (~190 KB) apre la stra
 ## 10. Rischi noti
 
 - **Frame IMU sbagliato** (FRD/FLU, segno yaw): la policy cade subito. Il test di parità obs è il primo da far passare.
-- **Filtro assetto diverso dal training**: se la gravity proiettata è più lenta/rumorosa di quella vista in training, il duck oscilla. Confrontare `MDK_ATT_SRC` 0/1 nel log.
+- **Filtro assetto diverso dal training**: se la gravity proiettata è più lenta/rumorosa di quella vista in training, il duck oscilla. Confrontare `NNM_ATT_SRC` 0/1 nel log.
 - **Quantizzazione PWM** (3 mrad/µs): accettabile per XL330 (risoluzione 1.5 mrad); su hardware si passa ai tick Robotis.
 - **Feedback giunti dai target** invece che dallo stato: la rete vede un robot “ideale” e diverge dalla realtà. Vietato come fallback silenzioso.
 
@@ -241,13 +241,13 @@ Su H743 (2 MB flash) la MLP sta in flash in float32; INT8 (~190 KB) apre la stra
 
 ## 11. Stato dell'implementazione (24 settembre 2026)
 
-Repo: `virtualrobotix/microduck-ap-ppo-sitl` (privato) con il fork `virtualrobotix/ardupilot`, branch `microduck-ppo` (master upstream del 24/09 + `AP_MicroDuck`) come submodule.
+Repo: `virtualrobotix/microduck-ap-ppo-sitl` (privato) con il fork `virtualrobotix/ardupilot`, branch `microduck-ppo` (master upstream del 24/09 + `AP_NNMixer`) come submodule.
 
 | Componente | Stato |
 |---|---|
-| `libraries/AP_MicroDuck` (obs 61, filtro gravità IMU-only, storia, stick→twist, forward C, `MDK_*`, log `MDK/MDKQ/MDKV/MDKA`, `PPO_*`) | fatto |
+| `libraries/AP_NNMixer` (obs 61, filtro gravità IMU-only, storia, stick→twist, forward C, `NNM_*`, log `NNM/NNMQ/NNMV/NNMA`, `PPO_*`) | fatto |
 | `SIM_JSON` con `joints{jpos,jvel}` → `sitl->state` → joint feedback | fatto |
-| Rover: `g2.microduck`, task 400 Hz (filtro) + 50 Hz (policy), servo Scripting1..14 | fatto |
+| Rover: `g2.nnmixer`, task 400 Hz (filtro) + 50 Hz (policy), servo Scripting1..14 | fatto |
 | Pianta MuJoCo (`plant/mujoco_json_plant.py`): scena e attuatori BAM del training, FRD/NED, lock-step 200 Hz | fatta |
 | Export pesi → C: MLP (`policy_mlp.h`, 773 KB) | fatto |
 | Batteria HIL (`scripts/hil_test.py`): arm, stand, avanti, laterale, rotazione, HOLD, disarm + parità in-situ | 8/8 PASS con MLP |

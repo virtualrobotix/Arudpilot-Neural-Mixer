@@ -1,5 +1,5 @@
-# MicroDuck on ArduRover SITL with the MuJoCo JSON plant
-# load with: sim_vehicle.py -v Rover --model JSON:127.0.0.1 --add-param-file sitl/microduck.parm
+# NNMixer on ArduRover SITL with the MuJoCo JSON plant
+# load with: sim_vehicle.py -v Rover --model JSON:127.0.0.1 --add-param-file sitl/nnmixer.parm
 
 # physics lock-step: one 5 ms MuJoCo step per SITL frame; main loop 200 Hz so the
 # gravity filter integrates the gyro at 200 Hz (policy task stays at 50 Hz)
@@ -7,9 +7,9 @@ SIM_RATE_HZ 200
 SCHED_LOOP_RATE 200
 
 # policy
-MDK_ENABLE 1
-MDK_POLICY 0
-MDK_LOG 1
+NNM_ENABLE 1
+NNM_POLICY 0
+NNM_LOG 1
 
 # 14 joint servos on Scripting1..14 (94..107); wire encoding 1 us = 3 mrad around 1500
 SERVO1_FUNCTION 94

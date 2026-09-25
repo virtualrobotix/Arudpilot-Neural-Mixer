@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "microduck_infer.h"
+#include "nnmixer_infer.h"
 
 #ifndef POLICY_HEADER
 #error "define POLICY_HEADER"
@@ -17,7 +17,7 @@
 
 int main(void)
 {
-    microduck_policy_t p = {
+    nnmixer_policy_t p = {
         .obs_dim = SYMU(_OBS_DIM),
         .act_dim = SYMU(_ACT_DIM),
         .n_layers = SYMU(_N_LAYERS),
@@ -31,7 +31,7 @@ int main(void)
     float obs[SYMU(_OBS_DIM)];
     float act[SYMU(_ACT_DIM)];
     while (fread(obs, sizeof(float), p.obs_dim, stdin) == p.obs_dim) {
-        if (microduck_forward(&p, obs, act) != 0) {
+        if (nnmixer_forward(&p, obs, act) != 0) {
             fprintf(stderr, "forward failed\n");
             return 2;
         }

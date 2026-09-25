@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MicroDuck MuJoCo plant for ArduPilot SITL (JSON physics backend).
+"""NNMixer MuJoCo plant for ArduPilot SITL (JSON physics backend).
 
 ArduPilot side:   sim_vehicle.py -v Rover --model JSON:127.0.0.1  (SIM_RATE_HZ 200)
 This side:        python plant/mujoco_json_plant.py [--no-viewer] [--no-bam]
@@ -9,10 +9,10 @@ Protocol (libraries/SITL/examples/JSON/readme.md):
   plant -> SITL  UDP reply  one JSON line: timestamp, imu{gyro, accel_body}, position, velocity,
                  quaternion  (+ our extension: joints{jpos[14], jvel[14]})
 
-Frames: ArduPilot is body FRD / world NED. MicroDuck trunk is FLU / world z-up.
+Frames: ArduPilot is body FRD / world NED. NNMixer trunk is FLU / world z-up.
 Mapping (both frames):  (x, y, z) -> (x, -y, -z);  quaternion (w,x,y,z) -> (w, x, -y, -z).
 
-Servo encoding (must match AP_MicroDuck): q_target_rad = (pwm - 1500) * 0.003   (1 us = 3 mrad).
+Servo encoding (must match AP_NNMixer): q_target_rad = (pwm - 1500) * 0.003   (1 us = 3 mrad).
 
 Physics step 0.005 s per servo packet (=> SITL runs at 200 Hz, the 50 Hz policy task sees 4 substeps,
 same decimation as training). Actuators: BAM M6 XL330 voltage model when `bam` is importable
@@ -43,7 +43,7 @@ NOESIS_MJCF = Path(
     "/Users/robertonavoni/Desktop/Lavoro/Progetti-2026/Progetti Software/NOESIS EXPERIMENT/"
     "third_party/microduck_rl/src/mjlab_microduck/robot/microduck/scene.xml"
 )
-DEFAULT_MJCF = Path(os.environ.get("MICRODUCK_MJCF", str(NOESIS_MJCF)))
+DEFAULT_MJCF = Path(os.environ.get("NNMIXER_MJCF", str(NOESIS_MJCF)))
 
 SERVO_MAGIC_16 = 18458
 SERVO_MAGIC_32 = 29569
@@ -63,7 +63,7 @@ DEFAULT_POSE = np.array([
     0.0, 0.0873, 0.4579, 0.0049, -0.4530,
 ], dtype=np.float64)
 
-# BAM M6 defaults — mirror scripts/infer_policy.py in microduck_rl
+# BAM M6 defaults — mirror scripts/infer_policy.py in the training stack
 BAM_KP_FW = 200.0
 BAM_VIN = 7.4
 BAM_VIN_MIN = 6.0
@@ -283,7 +283,7 @@ class Overlay:
         W = self.width
         # header: the chain
         d.rectangle([0, 0, W, 30], fill=(10, 20, 35, 200))
-        d.text((10, 6), "MAVProxy script --MAVLink tcp:5760--> ArduRover SITL [AP_MicroDuck PPO 50 Hz] --SIM_JSON udp--> MuJoCo",
+        d.text((10, 6), "MAVProxy script --MAVLink tcp:5760--> ArduRover SITL [AP_NNMixer PPO 50 Hz] --SIM_JSON udp--> MuJoCo",
                font=self.font_b, fill=(230, 235, 245, 255))
         # credit box (top-left)
         x0, pw = 10, 470
@@ -330,7 +330,7 @@ class VideoRecorder:
     """Offscreen render of the plant to an mp4 (ffmpeg pipe), camera tracking the trunk."""
 
     def __init__(self, plant: Plant, path: Path, fps: float = 25.0, width: int = 960, height: int = 540,
-                 overlay: Path | None = None):
+                 overlay: Path | None = None, hud=None):
         import shutil
         import subprocess
 
@@ -340,6 +340,7 @@ class VideoRecorder:
         self.plant = plant
         self.fps = fps
         self.overlay = Overlay(overlay, width, height) if overlay is not None else None
+        self.hud = hud
         self.driving = False
         # the scene's offscreen framebuffer defaults to 640x480; enlarge it for the recording
         plant.model.vis.global_.offwidth = max(plant.model.vis.global_.offwidth, width)
@@ -365,7 +366,7 @@ class VideoRecorder:
         self.next_t = self.plant.t + 1.0 / self.fps
         d = self.plant.data
         self.cam.lookat[:] = d.qpos[self.plant.free_qpos : self.plant.free_qpos + 3]
-        if self.overlay is not None:
+        if self.overlay is not None or self.hud is not None:
             # keep the robot in the right part of the frame; the command panel lives on the left
             az = math.radians(self.cam.azimuth)
             self.cam.lookat[0] += 0.25 * -math.sin(az)
@@ -375,6 +376,8 @@ class VideoRecorder:
         frame = self.renderer.render()
         if self.overlay is not None:
             frame = self.overlay.draw(frame, self.plant, self.driving)
+        if self.hud is not None:
+            frame = self.hud.draw(frame, self.plant, self.driving)
         if self.proc.stdin is not None:
             self.proc.stdin.write(frame.tobytes())
         self.n += 1
@@ -409,7 +412,7 @@ def main() -> None:
     args = ap.parse_args()
 
     if not args.mjcf.exists():
-        sys.exit(f"MJCF not found: {args.mjcf} (set MICRODUCK_MJCF)")
+        sys.exit(f"MJCF not found: {args.mjcf} (set NNMIXER_MJCF)")
     plant = Plant(args.mjcf, use_bam=not args.no_bam, viewer=not args.no_viewer)
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -461,7 +464,7 @@ def main() -> None:
             else:
                 pwm14 = np.array(pwm[:14], dtype=np.float64)
                 if np.all(pwm14 == 0):
-                    # SITL booted but AP_MicroDuck is not writing servos yet: keep the duck pinned
+                    # SITL booted but AP_NNMixer is not writing servos yet: keep the robot pinned
                     if driving:
                         print("[plant] servo outputs went to zero -> pinned (idle)")
                         driving = False

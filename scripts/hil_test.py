@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HIL test driver for MicroDuck-on-ArduPilot (SITL + MuJoCo JSON plant).
+"""HIL test driver for NNMixer-on-ArduPilot (SITL + MuJoCo JSON plant).
 
 Talks MAVLink to the SITL (default tcp:127.0.0.1:5760, i.e. sim_vehicle --no-mavproxy or the
 bare ardurover binary) and drives the same battery a human would run from MAVProxy:
@@ -8,7 +8,7 @@ floats the task publishes and (optionally) the plant's UDP status.
 
     scripts/hil_test.py monitor                # print PPO_* telemetry
     scripts/hil_test.py battery                # full battery, exit code != 0 on failure
-    scripts/hil_test.py battery --policy 1     # Cartan (when MDK_POLICY 1 is available)
+    scripts/hil_test.py battery --policy 1     # Cartan (when NNM_POLICY 1 is available)
 
 Battery steps (each with pass criteria):
   stand     arm, sticks centred 15 s      -> PPO_FAIL == 0, PGZ < -0.9, no fall
@@ -124,8 +124,8 @@ def check(name: str, cond: bool, detail: str, results: list):
 
 def cmd_battery(link: Link, args):
     results: list = []
-    link.param_set("MDK_ENABLE", 1)
-    link.param_set("MDK_POLICY", args.policy)
+    link.param_set("NNM_ENABLE", 1)
+    link.param_set("NNM_POLICY", args.policy)
     link.set_mode("MANUAL")
     link.centre_sticks()
     link.pump(2.0)
@@ -187,7 +187,7 @@ def main() -> None:
     ap.add_argument("cmd", choices=["monitor", "battery"])
     ap.add_argument("--url", default="tcp:127.0.0.1:5760")
     ap.add_argument("--policy", type=int, default=0)
-    ap.add_argument("--vx-expect", type=float, default=0.2, help="expected PPO_VX for RC2=1750 (0.5 * MDK_VX_MAX)")
+    ap.add_argument("--vx-expect", type=float, default=0.2, help="expected PPO_VX for RC2=1750 (0.5 * NNM_VX_MAX)")
     ap.add_argument("--log-dir", default="sitl/run/logs", help="SITL dataflash dir for the in-situ parity check ('' to skip)")
     ap.add_argument("--onnx", default=None, help="ONNX to replay (default: the policy selected by --policy)")
     args = ap.parse_args()

@@ -1,7 +1,7 @@
 // Parity harness for the Cartan policy: N x obs float32 on stdin -> N x act float32 on stdout.
 #include <stdio.h>
 #include <stdlib.h>
-#include "microduck_infer.h"
+#include "nnmixer_infer.h"
 
 #ifndef POLICY_HEADER
 #error "define POLICY_HEADER"
@@ -15,7 +15,7 @@
 
 int main(void)
 {
-    microduck_cartan_t p = {
+    nnmixer_cartan_t p = {
         .obs_dim = SYMU(_OBS_DIM),
         .act_dim = SYMU(_ACT_DIM),
         .paint = SYMU(_PAINT),
@@ -35,7 +35,7 @@ int main(void)
     float obs[SYMU(_OBS_DIM)];
     float act[SYMU(_ACT_DIM)];
     while (fread(obs, sizeof(float), p.obs_dim, stdin) == p.obs_dim) {
-        if (microduck_cartan_forward(&p, obs, act) != 0) {
+        if (nnmixer_cartan_forward(&p, obs, act) != 0) {
             fprintf(stderr, "forward failed\n");
             return 2;
         }

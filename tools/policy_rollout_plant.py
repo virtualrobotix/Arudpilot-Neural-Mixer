@@ -2,7 +2,7 @@
 """Reference rollout: ONNX policy driving the MuJoCo plant directly (no ArduPilot).
 
 Validates plant + policy + observation contract before the firmware is in the loop, and
-produces the reference trajectory the AP_MicroDuck obs-parity test compares against.
+produces the reference trajectory the AP_NNMixer obs-parity test compares against.
 
     python tools/policy_rollout_plant.py policies/microduck_mlp_2048x2000_it1999.onnx --vx 0.2 --seconds 10
 

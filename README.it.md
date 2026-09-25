@@ -1,11 +1,11 @@
-# MicroDuck su ArduPilot — una policy PPO di locomozione come task di ArduRover, MuJoCo come pianta SITL
+# NNMixer su ArduPilot — una policy PPO di locomozione come task di ArduRover, MuJoCo come pianta SITL
 
 [English](README.md) | **Italiano**
 
 *Developed by Roberto Navoni — DelphyAI LAB · r.navoni74@gmail.com*
 
 Questo repository porta un controllore di camminata appreso per rinforzo per il
-[MicroDuck](https://huggingface.co/spaces/pollen-robotics/microduck-simulator) (bipede da 25 cm con 14 servo,
+[NNMixer](https://huggingface.co/spaces/pollen-robotics/microduck-simulator) (bipede da 25 cm con 14 servo,
 Pollen Robotics / Hugging Face) **dentro ArduPilot**. La rete neurale gira come task a 50 Hz del firmware
 ArduRover, legge solo i sensori di ArduPilot e comanda i 14 giunti attraverso le uscite servo di ArduPilot.
 In simulazione il corpo del robot è un modello MuJoCo collegato al SITL di ArduPilot come farebbe un motore
@@ -15,7 +15,7 @@ Non si dà nulla per scontato: il [glossario](#glossario) in fondo definisce ogn
 
 ```
  MAVProxy / GCS  ──MAVLink (tcp:5760)──▶  ArduRover SITL (un solo binario)              ──SIM_JSON udp:9002──▶  pianta MuJoCo
-   arm, stick rc,                           RC_Channels ─▶ AP_MicroDuck (PPO, 50 Hz) ─▶ SRV_Channels (14 PWM)      14 XL330 (modello BAM)
+   arm, stick rc,                           RC_Channels ─▶ AP_NNMixer (PPO, 50 Hz) ─▶ SRV_Channels (14 PWM)      14 XL330 (modello BAM)
    mode HOLD, param                         AP_InertialSensor ◀── backend SITL JSON ◀────udp:9003 (imu, quat, giunti)────┘
 ```
 
@@ -85,7 +85,7 @@ Dopo abbastanza iterazioni la rete ha "scoperto" un'andatura. Nessuno l'ha progr
 | Voce | Valore |
 |---|---|
 | Fisica | **MuJoCo Warp** (MuJoCo su GPU) via `mjlab` 1.3.0 |
-| Modello robot | MJCF del MicroDuck da Onshape (14 giunti, trunk libero) |
+| Modello robot | MJCF del NNMixer da Onshape (14 giunti, trunk libero) |
 | Attuatori | modello **BAM M6** del servo Dynamixel **XL330**: controllo in tensione, attrito misurato, limite di corrente, calo batteria |
 | Passo fisico | 5 ms (200 Hz); la policy agisce ogni 4 passi → **50 Hz** |
 | Ambienti paralleli | **2048** robot simulati insieme |
@@ -172,7 +172,7 @@ osservazioni** (61 medie e 61 deviazioni standard accumulate in training). Si de
 
 ## 3. La rete: MLP
 
-La policy deployata è un percettrone multistrato classico (`MDK_POLICY 0`): `61 → 512 → 256 → 128 → 14`,
+La policy deployata è un percettrone multistrato classico (`NNM_POLICY 0`): `61 → 512 → 256 → 128 → 14`,
 attivazione **ELU** fra gli strati. 197 896 parametri (773 KB in float32). È quello delle policy ufficiali
 Pollen. In questo SITL il forward impiega circa 0,37 ms per passo. La rete sta in piedi e cammina in questo repo.
 
@@ -180,14 +180,14 @@ Pollen. In questo SITL il forward impiega circa 0,37 ms per passo. La rete sta i
 
 ## 4. Da `.pt` al codice C nel firmware
 
-1. **Export in ONNX** (in `microduck_rl`, `scripts/export.py`): traccia `actor(normalizer(obs))`. Il
+1. **Export in ONNX** (nel repo di training Pollen Robotics, `scripts/export.py`): traccia `actor(normalizer(obs))`. Il
    normalizzatore è *cotto* nel grafo: i primi due nodi ONNX sono `Sub(mean)` e `Div(std)`. Per questo il
    firmware non calcola mai medie o deviazioni: sono costanti apprese in training, come i pesi.
 2. **ONNX → header C** (`tools/export_policy_c.py`): legge
    gli initializer e scrive `policy_mlp.h` con `mean[61]`, `std[61]`, tutte le matrici dei
    pesi come `static const float` e `q0`.
-3. **Forward in C** (`tools/microduck_infer.c`, copiato tal quale in `libraries/AP_MicroDuck/`):
-   `microduck_forward()` per l'MLP. Float32, nessun heap, solo `expf`.
+3. **Forward in C** (`tools/nnmixer_infer.c`, copiato tal quale in `libraries/AP_NNMixer/`):
+   `nnmixer_forward()` per l'MLP. Float32, nessun heap, solo `expf`.
 4. **Test di parità**: `tools/parity_check.py` passa 2201 osservazioni in ONNX Runtime e nel binario C —
    differenza massima 3,8e-6 (MLP). `tools/log_parity.py` fa lo stesso con le osservazioni
    che il *firmware* ha loggato durante una corsa, contro le azioni che il firmware ha davvero inviato
@@ -202,17 +202,17 @@ Tre processi in simulazione; su hardware il terzo è il robot.
 | Processo | Ruolo | Parla con |
 |---|---|---|
 | **MAVProxy** (o qualunque GCS, o `scripts/hil_test.py`) | operatore: arm/disarm, stick (`rc N pwm`), modi, parametri, telemetria | ArduRover via MAVLink, TCP 5760 |
-| **ArduRover SITL** (`ardupilot/build/sitl/bin/ardurover --model JSON`) | il firmware: sensori, RC, modi, arming, task **AP_MicroDuck**, uscite servo | MAVProxy (MAVLink); pianta (SIM_JSON UDP 9002 out / 9003 in) |
+| **ArduRover SITL** (`ardupilot/build/sitl/bin/ardurover --model JSON`) | il firmware: sensori, RC, modi, arming, task **AP_NNMixer**, uscite servo | MAVProxy (MAVLink); pianta (SIM_JSON UDP 9002 out / 9003 in) |
 | **Pianta MuJoCo** (`plant/mujoco_json_plant.py`) | il corpo del robot: 14 attuatori BAM-XL330, fisica, IMU, encoder | ArduRover (SIM_JSON) |
 
 ### 5.1 Il loop a 50 Hz dentro ArduRover
 
 1. `AP_InertialSensor` fornisce gyro e accelerometro nel frame body di ArduPilot (FRD: x avanti, y destra, z giù).
-2. `AP_MicroDuck::update_attitude()` (a loop rate) mantiene la **direzione della gravità** con un piccolo filtro
-   complementare IMU-only: propagazione col gyro, correzione lenta con l'accelerometro (`MDK_ATT_TAU`). L'EKF
+2. `AP_NNMixer::update_attitude()` (a loop rate) mantiene la **direzione della gravità** con un piccolo filtro
+   complementare IMU-only: propagazione col gyro, correzione lenta con l'accelerometro (`NNM_ATT_TAU`). L'EKF
    *non* entra nell'osservazione, perché il training ha usato l'IMU grezza.
 3. Posizioni e velocità dei giunti arrivano dalla pianta (in SITL) o arriveranno dal bus Dynamixel (su hardware).
-4. Stick → twist in unità SI: `vx = stick2 × MDK_VX_MAX`, `vy = stick1 × MDK_VY_MAX`, `ωz = stick4 × MDK_WZ_MAX`.
+4. Stick → twist in unità SI: `vx = stick2 × NNM_VX_MAX`, `vy = stick1 × NNM_VY_MAX`, `ωz = stick4 × NNM_WZ_MAX`.
    Il modo HOLD forza il twist a zero; disarmato forza l'azione a zero.
 5. Il vettore di 61 viene assemblato nel **frame trunk FLU** (gyro `(x, −y, −z)`, gravità `(x, −y, −z)`), gira
    il forward C (≈0,3 ms), le 14 azioni vengono limitate e salvate come "azione precedente" per il tick dopo.
@@ -240,17 +240,17 @@ Fork [`virtualrobotix/ardupilot`](https://github.com/virtualrobotix/ardupilot/tr
 
 | File | Modifica |
 |---|---|
-| `libraries/AP_MicroDuck/` (nuova) | `AP_MicroDuck.{h,cpp}`: osservazione, filtro gravità, storia azioni, stick, uscite servo, parametri `MDK_*`, log `MDK/MDKQ/MDKV/MDKA`, `NAMED_VALUE_FLOAT PPO_*`; `microduck_infer.{h,c}`; `policy_mlp.h` |
+| `libraries/AP_NNMixer/` (nuova) | `AP_NNMixer.{h,cpp}`: osservazione, filtro gravità, storia azioni, stick, uscite servo, parametri `NNM_*`, log `NNM/NNMQ/NNMV/NNMA`, `NAMED_VALUE_FLOAT PPO_*`; `nnmixer_infer.{h,c}`; `policy_mlp.h` |
 | `libraries/SITL/SIM_JSON.{h,cpp}` | parsing di `joints/jpos`, `joints/jvel` (tipo `DATA_FLOAT_ARRAY14`) |
 | `libraries/SITL/SITL.h` | `sitl_fdm.joint_pos/joint_vel/joint_count/joint_time_us` |
-| `Rover/Parameters.{h,cpp}` | `g2.microduck`, gruppo `MDK_` (indice 63) |
+| `Rover/Parameters.{h,cpp}` | `g2.nnmixer`, gruppo `NNM_` (indice 63) |
 | `Rover/Rover.cpp` | scheduler: `update_attitude` a loop rate, `update` a 50 Hz |
-| `Rover/wscript` | link di `AP_MicroDuck` |
+| `Rover/wscript` | link di `AP_NNMixer` |
 
-Parametri (`sitl/microduck.parm` li imposta per il SITL): `MDK_ENABLE`, `MDK_POLICY` (0 MLP),
-`MDK_VX_MAX 0.4`, `MDK_VY_MAX 0.3`, `MDK_WZ_MAX 1.0`, `MDK_WD_MS 40` (watchdog feedback giunti),
-`MDK_ATT_SRC` (0 filtro IMU / 1 AHRS, debug), `MDK_ATT_TAU 0.5`, `MDK_RC_VX/VY/WZ 2/1/4`, `MDK_ACT_MAX 2.0`,
-`MDK_LOG`, `MDK_HOLD_MODE 4`, `MDK_SRV_FN0 94`. Più `SERVO1..14_FUNCTION 94..107`, `SIM_RATE_HZ 200`,
+Parametri (`sitl/nnmixer.parm` li imposta per il SITL): `NNM_ENABLE`, `NNM_POLICY` (0 MLP),
+`NNM_VX_MAX 0.4`, `NNM_VY_MAX 0.3`, `NNM_WZ_MAX 1.0`, `NNM_WD_MS 40` (watchdog feedback giunti),
+`NNM_ATT_SRC` (0 filtro IMU / 1 AHRS, debug), `NNM_ATT_TAU 0.5`, `NNM_RC_VX/VY/WZ 2/1/4`, `NNM_ACT_MAX 2.0`,
+`NNM_LOG`, `NNM_HOLD_MODE 4`, `NNM_SRV_FN0 94`. Più `SERVO1..14_FUNCTION 94..107`, `SIM_RATE_HZ 200`,
 `SCHED_LOOP_RATE 200` e **`INS_GYRO_FILTER 0`** (vedi §9).
 
 Telemetria: `PPO_MS` tempo del forward, `PPO_PGZ` gravità z (in piedi ≈ −1), `PPO_VX` comando, `PPO_FAIL`
@@ -270,13 +270,13 @@ cd ardupilot && git submodule update --init --recursive --depth 1
 ../.venv/bin/python ./waf configure --board sitl && ../.venv/bin/python ./waf rover && cd ..
 ```
 
-La pianta carica la scena MJCF del MicroDuck dal checkout di NOESIS EXPERIMENT (`plant/mujoco_json_plant.py`,
-`NOESIS_MJCF`); con `MICRODUCK_MJCF` si indica la propria copia di `microduck_rl/src/mjlab_microduck/robot/microduck/scene.xml`.
+La pianta carica la scena MJCF del NNMixer dal checkout di NOESIS EXPERIMENT (`plant/mujoco_json_plant.py`,
+`NOESIS_MJCF`); con `NNMIXER_MJCF` si indica la propria copia di `microduck_rl/src/mjlab_microduck/robot/microduck/scene.xml`.
 
 Rigenerare gli header C da altri checkpoint:
 
 ```bash
-.venv/bin/python tools/export_policy_c.py  mio_mlp.onnx    --out ardupilot/libraries/AP_MicroDuck/policy_mlp.h    --name mlp
+.venv/bin/python tools/export_policy_c.py  mio_mlp.onnx    --out ardupilot/libraries/AP_NNMixer/policy_mlp.h    --name mlp
 .venv/bin/python tools/parity_check.py mio_mlp.onnx --name mlp            # deve stampare PARITY OK
 ```
 
@@ -291,7 +291,7 @@ Demo visiva in un comando (finestra MuJoCo + SITL + MAVProxy digitato dallo scri
 .venv/bin/python scripts/demo_mavproxy.py --video out.mp4 --keep
 ```
 
-Sequenza digitata in MAVProxy: `param set MDK_POLICY`, `mode manual`, `rc all 1500`, `arm throttle` → 6 s in
+Sequenza digitata in MAVProxy: `param set NNM_POLICY`, `mode manual`, `rc all 1500`, `arm throttle` → 6 s in
 piedi → `rc 2 2000` avanti 3 s → `rc 2 1000` indietro 2 s → `rc 1 1800` laterale 2 s → `rc 4 2000` finché la
 velocità di imbardata ricevuta in `ATTITUDE` integra 90° → `rc 2 2000` avanti 5 s → `mode hold` → `mode manual`
 → `disarm`. L'overlay del video mostra ogni comando con il messaggio MAVLink che produce. Con `--keep` resta
@@ -320,7 +320,7 @@ Rollout di riferimento senza ArduPilot (solo policy ↔ pianta), utile per separ
 
 ## 9. Risultati
 
-| | MLP (`MDK_POLICY 0`) |
+| | MLP (`NNM_POLICY 0`) |
 |---|---|
 | Parità C vs ONNX (offline, 2201 osservazioni) | max 3,8e-6 |
 | Parità in-situ (obs loggate dal firmware → ONNX vs azioni firmware) | max 2,5e-7 |
@@ -343,15 +343,15 @@ oltre agli stick.
 
 ### Risultato hardware Pixhawk 6C Mini
 
-`Pixhawk6C-MicroDuck` è un target ArduRover dedicato allo STM32H743 (480 MHz, flash 2 MB, RAM 1 MB).
-La MLP float32 entra disabilitando i sottosistemi Rover non usati dal MicroDuck: il firmware occupa
+`Pixhawk6C-NNMixer` è un target ArduRover dedicato allo STM32H743 (480 MHz, flash 2 MB, RAM 1 MB).
+La MLP float32 entra disabilitando i sottosistemi Rover non usati dal NNMixer: il firmware occupa
 1.942.616 byte e lascia 23.464 byte liberi.
 
 Il firmware è stato caricato e provato su una Pixhawk 6C Mini reale. MuJoCo scambia stato
 `DEBUG_FLOAT_ARRAY` e attuazioni `SERVO_OUTPUT_RAW` via MAVLink USB usando
 [`scripts/hil_mavlink_mujoco.py`](scripts/hil_mavlink_mujoco.py). La latenza MLP misurata è
 **p50 4,945 ms, p99 4,975 ms** a 50 Hz; il carico CPU complessivo medio è **32,8%**, contro **5,4%**
-con `AP_MicroDuck` disabilitato. Un test HIL in piedi di 15 secondi è terminato con `PPO_FAIL=0`
+con `AP_NNMixer` disabilitato. Un test HIL in piedi di 15 secondi è terminato con `PPO_FAIL=0`
 e inclinazione del tronco di circa 0,3–0,8°.
 
 ```bash
@@ -366,15 +366,15 @@ e inclinazione del tronco di circa 0,3–0,8°.
 | Path | Cosa |
 |---|---|
 | `ardupilot/` | submodule: fork, branch `microduck-ppo` |
-| `ardupilot/libraries/AP_MicroDuck/` | il task, il forward C, gli header dei pesi generati |
+| `ardupilot/libraries/AP_NNMixer/` | il task, il forward C, gli header dei pesi generati |
 | `plant/mujoco_json_plant.py` | pianta MuJoCo: protocollo SIM_JSON, attuatori BAM, frame, registrazione mp4 opzionale con overlay dei comandi |
 | `policies/` | l'export ONNX MLP validato (iterazione 1999) |
 | `tools/export_policy_c.py` | ONNX → header C |
-| `tools/microduck_infer.{h,c}` | forward C (MLP) |
+| `tools/nnmixer_infer.{h,c}` | forward C (MLP) |
 | `tools/parity_check.py`, `tools/parity_check*.c` | ONNX Runtime vs C |
 | `tools/log_parity.py` | log del firmware vs ONNX |
 | `tools/policy_rollout_plant.py` | policy ↔ pianta senza ArduPilot |
-| `sitl/microduck.parm` | parametri SITL |
+| `sitl/nnmixer.parm` | parametri SITL |
 | `scripts/run_plant.sh`, `scripts/run_sitl.sh` | avvio |
 | `scripts/hil_test.py` | batteria automatica |
 | `scripts/demo_mavproxy.py` | demo visiva pilotata via MAVProxy |

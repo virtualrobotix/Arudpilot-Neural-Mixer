@@ -59,7 +59,7 @@ def main() -> None:
         exe = td / "parity"
         cmd = [args.cc, args.opt, "-std=c11", "-Wall", "-Wextra",
                f"-DPOLICY_HEADER=\"{header}\"", f"-DPOLICY_PREFIX={args.name}", f"-DPOLICY_PREFIX_U={args.name.upper()}",
-               "-I", str(HERE), str(HERE / harness), str(HERE / "microduck_infer.c"), "-o", str(exe), "-lm"]
+               "-I", str(HERE), str(HERE / harness), str(HERE / "nnmixer_infer.c"), "-o", str(exe), "-lm"]
         subprocess.run(cmd, check=True)
 
         rng = np.random.default_rng(0)

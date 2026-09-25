@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the architecture deck (IT) explaining how MAVProxy, ArduRover SITL, AP_MicroDuck and the MuJoCo
+"""Build the architecture deck (IT) explaining how MAVProxy, ArduRover SITL, AP_NNMixer and the MuJoCo
 plant are connected, with the ArduRover integration spelled out. Output: docs/architettura-integrazione.pptx
 
     .venv/bin/python tools/build_architecture_slides.py
@@ -45,7 +45,7 @@ def tr(s):
 
 # Italian source strings -> English. Anything not listed is language-neutral (identifiers, numbers).
 TR = {
-    "MicroDuck su ArduPilot": "MicroDuck on ArduPilot",
+    "NNMixer su ArduPilot": "NNMixer on ArduPilot",
     "Come sono collegati MAVProxy, ArduRover, la rete PPO e MuJoCo": "How MAVProxy, ArduRover, the PPO network and MuJoCo are connected",
     "Roberto Navoni — DelphyAI LAB · r.navoni74@gmail.com · 24 settembre 2026": "Roberto Navoni — DelphyAI LAB · r.navoni74@gmail.com · 24 September 2026",
     "Un solo firmware ArduRover. La rete neurale (61 osservazioni → 14 servo, 50 Hz) è un task dello scheduler. MuJoCo è il corpo del robot, collegato al SITL come un motore fisico esterno. Il comando arriva da MAVProxy via MAVLink.":
@@ -58,7 +58,7 @@ TR = {
     "(un solo binario ardurover)": "(a single ardurover binary)",
     "RC_Channels → twist SI": "RC_Channels → twist in SI units",
     "AP_InertialSensor → gyro, gravità": "AP_InertialSensor → gyro, gravity",
-    "AP_MicroDuck: rete PPO 50 Hz": "AP_MicroDuck: PPO network 50 Hz",
+    "AP_NNMixer: rete PPO 50 Hz": "AP_NNMixer: PPO network 50 Hz",
     "backend SIM_JSON": "SIM_JSON backend",
     "Pianta MuJoCo": "MuJoCo plant",
     "14 servo XL330 (modello BAM)": "14 XL330 servos (BAM model)",
@@ -66,9 +66,9 @@ TR = {
     "IMU, encoder giunti": "IMU, joint encoders",
     "Lock-step: il SITL invia i PWM e aspetta il JSON; MuJoCo fa un passo da 5 ms per frame (SIM_RATE_HZ 200). Il task PPO gira ogni 4 frame = 50 Hz, come in training.":
         "Lock-step: the SITL sends the PWM and waits for the JSON; MuJoCo takes one 5 ms step per frame (SIM_RATE_HZ 200). The PPO task runs every 4 frames = 50 Hz, as in training.",
-    "Il task PPO non ha alcun collegamento con MuJoCo: vede solo API ArduPilot. Sostituire la pianta con IMU + bus Dynamixel reali non cambia una riga di AP_MicroDuck.":
-        "The PPO task has no link to MuJoCo: it only sees ArduPilot APIs. Replacing the plant with a real IMU + Dynamixel bus does not change a line of AP_MicroDuck.",
-    "2. Dentro ArduRover: il loop a 50 Hz di AP_MicroDuck": "2. Inside ArduRover: the 50 Hz loop of AP_MicroDuck",
+    "Il task PPO non ha alcun collegamento con MuJoCo: vede solo API ArduPilot. Sostituire la pianta con IMU + bus Dynamixel reali non cambia una riga di AP_NNMixer.":
+        "The PPO task has no link to MuJoCo: it only sees ArduPilot APIs. Replacing the plant with a real IMU + Dynamixel bus does not change a line of AP_NNMixer.",
+    "2. Dentro ArduRover: il loop a 50 Hz di AP_NNMixer": "2. Inside ArduRover: the 50 Hz loop of AP_NNMixer",
     "Tutto ciò che la rete vede passa dalle librerie standard di ArduPilot.": "Everything the network sees goes through ArduPilot's standard libraries.",
     "ArduRover — scheduler (SCHED_LOOP_RATE 200)": "ArduRover — scheduler (SCHED_LOOP_RATE 200)",
     "q, q̇ (14) da sitl->state": "q, q̇ (14) from sitl->state",
@@ -79,11 +79,11 @@ TR = {
     "frame trunk FLU": "trunk FLU frame",
     "mean/std + rete": "mean/std + network",
     "a applicata → storia (obs[34:48]) al tick successivo": "applied a → history (obs[34:48]) at the next tick",
-    "update_attitude() a loop rate: propaga la direzione della gravità col gyro, la corregge con l'accelerometro (MDK_ATT_TAU 0.5 s)":
-        "update_attitude() at loop rate: propagates the gravity direction with the gyro, corrects it with the accelerometer (MDK_ATT_TAU 0.5 s)",
+    "update_attitude() a loop rate: propaga la direzione della gravità col gyro, la corregge con l'accelerometro (NNM_ATT_TAU 0.5 s)":
+        "update_attitude() at loop rate: propagates the gravity direction with the gyro, corrects it with the accelerometer (NNM_ATT_TAU 0.5 s)",
     "update() a 50 Hz: obs → forward → clip → PWM": "update() at 50 Hz: obs → forward → clip → PWM",
-    "Failsafe: disarmato, feedback giunti assente o vecchio > MDK_WD_MS → azione 0 = posa stand (anche nella storia)":
-        "Failsafe: disarmed, joint feedback missing or older than MDK_WD_MS → action 0 = stand pose (also in the history)",
+    "Failsafe: disarmato, feedback giunti assente o vecchio > NNM_WD_MS → azione 0 = posa stand (anche nella storia)":
+        "Failsafe: disarmed, joint feedback missing or older than NNM_WD_MS → action 0 = stand pose (also in the history)",
     "3. Percorso dei sensori: da MuJoCo all'osservazione": "3. Sensor path: from MuJoCo to the observation",
     "Frame diversi, unità diverse: la pianta parla ArduPilot (FRD/NED), il task parla training (FLU).": "Different frames, different units: the plant speaks ArduPilot (FRD/NED), the task speaks training (FLU).",
     "gyro/accel sito IMU (FLU)": "gyro/accel at the IMU site (FLU)",
@@ -107,13 +107,13 @@ TR = {
     "Comando MAVProxy": "MAVProxy command", "Messaggio MAVLink": "MAVLink message", "Cosa fa in ArduRover": "What ArduRover does", "Effetto sulla rete": "Effect on the network",
     "PPO_FAIL 1→0, servo attivi, la policy tiene in piedi": "PPO_FAIL 1→0, servos live, the policy keeps it standing",
     "RC_CHANNELS_OVERRIDE chan2=2000 (da sysid 255)": "RC_CHANNELS_OVERRIDE chan2=2000 (from sysid 255)",
-    "MDK_HOLD_MODE → twist forzato a 0: sta fermo": "MDK_HOLD_MODE → twist forced to 0: stands still",
+    "NNM_HOLD_MODE → twist forzato a 0: sta fermo": "NNM_HOLD_MODE → twist forced to 0: stands still",
     "prossimo tick usa la rete MLP": "next tick uses the MLP network",
     "azione 0, storia azzerata, PWM 0 (pianta: idle)": "action 0, history cleared, PWM 0 (plant: idle)",
     "Telemetria di ritorno (NAMED_VALUE_FLOAT ogni 0.5 s): PPO_MS tempo del forward, PPO_PGZ gravità z (in piedi ≈ −1), PPO_VX comando, PPO_FAIL stato.":
         "Return telemetry (NAMED_VALUE_FLOAT every 0.5 s): PPO_MS forward time, PPO_PGZ gravity z (standing ≈ −1), PPO_VX command, PPO_FAIL state.",
-    "Log DataFlash MDK / MDKQ / MDKV / MDKA: ogni tick con le 61 osservazioni e le 14 azioni → tools/log_parity.py le rigioca nell'ONNX (parità 2.5e-7).":
-        "DataFlash log MDK / MDKQ / MDKV / MDKA: every tick with the 61 observations and 14 actions → tools/log_parity.py replays them through the ONNX (parity 2.5e-7).",
+    "Log DataFlash NNM / NNMQ / NNMV / NNMA: ogni tick con le 61 osservazioni e le 14 azioni → tools/log_parity.py le rigioca nell'ONNX (parità 2.5e-7).":
+        "DataFlash log NNM / NNMQ / NNMV / NNMA: every tick with the 61 observations and 14 actions → tools/log_parity.py replays them through the ONNX (parity 2.5e-7).",
     "5. Percorso degli attuatori: dall'azione ai servo": "5. Actuator path: from the action to the servos",
     "La rete produce offset in radianti; ArduPilot li trasporta come PWM; la pianta li riconverte in target di posizione.": "The network outputs offsets in radians; ArduPilot carries them as PWM; the plant converts them back to position targets.",
     "Rete": "Network", "q0 = posa STAND2": "q0 = STAND2 pose", "funzioni 94..107 (Scripting1..14)": "functions 94..107 (Scripting1..14)",
@@ -130,19 +130,19 @@ TR = {
     "6. L'integrazione in ArduRover, file per file": "6. The ArduRover integration, file by file",
     "Fork virtualrobotix/ardupilot, branch microduck-ppo, sopra master upstream del 24/09/2026. 7 file toccati + 1 libreria nuova.": "Fork virtualrobotix/ardupilot, branch microduck-ppo, on upstream master of 24 Sep 2026. 7 files touched + 1 new library.",
     "File": "File", "Modifica": "Change", "Perché": "Why",
-    "libraries/AP_MicroDuck/  (nuova)": "libraries/AP_MicroDuck/  (new)",
-    "il task: obs, filtro gravità, storia, stick, servo, MDK_*, log, telemetria; rete in C": "the task: obs, gravity filter, history, sticks, servos, MDK_*, log, telemetry; network in C",
-    "membro g2.microduck; AP_SUBGROUPINFO \"MDK_\" indice 63": "member g2.microduck; AP_SUBGROUPINFO \"MDK_\" index 63",
-    "parametri MDK_* visibili da GCS e salvati in EEPROM": "MDK_* parameters visible from the GCS and stored in EEPROM",
+    "libraries/AP_NNMixer/  (nuova)": "libraries/AP_NNMixer/  (new)",
+    "il task: obs, filtro gravità, storia, stick, servo, NNM_*, log, telemetria; rete in C": "the task: obs, gravity filter, history, sticks, servos, NNM_*, log, telemetry; network in C",
+    "membro g2.nnmixer; AP_SUBGROUPINFO \"NNM_\" indice 63": "member g2.nnmixer; AP_SUBGROUPINFO \"NNM_\" index 63",
+    "parametri NNM_* visibili da GCS e salvati in EEPROM": "NNM_* parameters visible from the GCS and stored in EEPROM",
     "il task entra nello scheduler come qualunque libreria": "the task enters the scheduler like any other library",
     "link della libreria nel binario ardurover": "links the library into the ardurover binary",
     "tipo DATA_FLOAT_ARRAY14; chiavi joints/jpos, joints/jvel; copia in sitl->state": "type DATA_FLOAT_ARRAY14; keys joints/jpos, joints/jvel; copied into sitl->state",
     "il backend fisico consegna i giunti come consegna l'IMU": "the physics backend delivers the joints the same way it delivers the IMU",
     "sorgente SITL del joint feedback; su HW la sostituisce un driver Dynamixel": "SITL source of the joint feedback; on HW a Dynamixel driver replaces it",
-    "Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).":
-        "No change to RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: the task uses their public APIs. AP_MICRODUCK_ENABLED is 1 on SITL; boards must opt in (weights ~770 KB of flash as float32).",
-    "Parametri SITL (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.":
-        "SITL parameters (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.",
+    "Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_NNMIXER_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).":
+        "No change to RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: the task uses their public APIs. AP_NNMIXER_ENABLED is 1 on SITL; boards must opt in (weights ~770 KB of flash as float32).",
+    "Parametri SITL (sitl/nnmixer.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, NNM_ENABLE 1.":
+        "SITL parameters (sitl/nnmixer.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, NNM_ENABLE 1.",
     "7. Tempi e sincronizzazione": "7. Timing and synchronisation",
     "Una sola linea del tempo, guidata dal lock-step JSON.": "A single timeline, driven by the JSON lock-step.",
     "Loop ArduRover  (5 ms)": "ArduRover loop  (5 ms)", "MAVProxy  (asincrono)": "MAVProxy  (asynchronous)",
@@ -157,10 +157,10 @@ TR = {
     "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP)": "tools/parity_check.py: 2201 observations → ONNX Runtime vs the C binary: max 3.8e-6 (MLP)",
     "tools/log_parity.py: le osservazioni loggate dal firmware in volo → ONNX vs le azioni che il firmware ha inviato: max 2.5e-7": "tools/log_parity.py: observations logged by the firmware while running → ONNX vs the actions the firmware sent: max 2.5e-7",
     "tools/policy_rollout_plant.py: la stessa policy sulla stessa pianta senza ArduPilot — separa problemi di pianta da problemi di firmware": "tools/policy_rollout_plant.py: the same policy on the same plant without ArduPilot — separates plant issues from firmware issues",
-    "La rete (MDK_POLICY)": "The network (MDK_POLICY)",
+    "La rete (NNM_POLICY)": "The network (NNM_POLICY)",
     "0 = MLP 61→512→256→128→14 ELU, 197 896 parametri, 0.37 ms": "0 = MLP 61→512→256→128→14 ELU, 197 896 parameters, 0.37 ms",
     "9. Cosa cambia passando all'hardware": "9. What changes on hardware",
-    "Solo il terzo processo: la pianta MuJoCo diventa il robot. AP_MicroDuck non cambia.": "Only the third process: the MuJoCo plant becomes the robot. AP_MicroDuck does not change.",
+    "Solo il terzo processo: la pianta MuJoCo diventa il robot. AP_NNMixer non cambia.": "Only the third process: the MuJoCo plant becomes the robot. AP_NNMixer does not change.",
     "Blocco": "Block", "In SITL (oggi)": "In SITL (today)", "Su robot": "On the robot",
     "MuJoCo → JSON → INS simulata": "MuJoCo → JSON → simulated INS", "IMU del flight controller (stesso AP_InertialSensor)": "flight-controller IMU (same AP_InertialSensor)",
     "Feedback giunti": "Joint feedback", "driver bus Dynamixel (present position/velocity) → set_joint_feedback()": "Dynamixel bus driver (present position/velocity) → set_joint_feedback()",
@@ -312,7 +312,7 @@ def build(lang: str, out: Path) -> None:
     s = prs.slides.add_slide(BLANK)
     _n += 1
     text(s, Inches(0.8), Inches(1.5), Inches(11.7), Inches(1.4),
-         [("MicroDuck su ArduPilot", {"size": 40, "bold": True, "color": NAVY}),
+         [("NNMixer su ArduPilot", {"size": 40, "bold": True, "color": NAVY}),
           ("Come sono collegati MAVProxy, ArduRover, la rete PPO e MuJoCo", {"size": 22, "color": RED})],
          align=PP_ALIGN.CENTER)
     text(s, Inches(0.8), Inches(3.6), Inches(11.7), Inches(1.6),
@@ -330,8 +330,8 @@ def build(lang: str, out: Path) -> None:
     title(s, "1. Tre processi, due collegamenti", "In simulazione: GCS, firmware, corpo del robot. Su hardware il terzo processo è il robot vero.")
     y = Inches(2.0)
     h = Inches(3.6)
-    gcs = box(s, Inches(0.5), y, Inches(3.2), h, ["MAVProxy (GCS)", "", "operatore o script", "arm / disarm", "stick:  rc N <pwm>", "mode manual / hold", "param set MDK_*", "telemetria PPO_*"], fill=GREEN_FILL, line=GREEN, color=GREEN, size=13)
-    ap = box(s, Inches(4.7), y, Inches(4.0), h, ["ArduRover SITL", "(un solo binario ardurover)", "", "RC_Channels → twist SI", "AP_InertialSensor → gyro, gravità", "AP_MicroDuck: rete PPO 50 Hz", "SRV_Channels: 14 PWM", "backend SIM_JSON"], fill=BLUE_FILL, line=NAVY, color=NAVY, size=13)
+    gcs = box(s, Inches(0.5), y, Inches(3.2), h, ["MAVProxy (GCS)", "", "operatore o script", "arm / disarm", "stick:  rc N <pwm>", "mode manual / hold", "param set NNM_*", "telemetria PPO_*"], fill=GREEN_FILL, line=GREEN, color=GREEN, size=13)
+    ap = box(s, Inches(4.7), y, Inches(4.0), h, ["ArduRover SITL", "(un solo binario ardurover)", "", "RC_Channels → twist SI", "AP_InertialSensor → gyro, gravità", "AP_NNMixer: rete PPO 50 Hz", "SRV_Channels: 14 PWM", "backend SIM_JSON"], fill=BLUE_FILL, line=NAVY, color=NAVY, size=13)
     mj = box(s, Inches(9.7), y, Inches(3.1), h, ["Pianta MuJoCo", "plant/mujoco_json_plant.py", "", "14 servo XL330 (modello BAM)", "fisica 200 Hz (5 ms)", "IMU, encoder giunti", "viewer / video"], fill=RED_FILL, line=RED, color=RED, size=13)
     arrow(s, Inches(3.7), y + Inches(1.3), Inches(4.7), y + Inches(1.3), color=GREEN, width=2.25, label="MAVLink  tcp:5760", label_dy=-0.38, label_size=12)
     arrow(s, Inches(4.7), y + Inches(2.3), Inches(3.7), y + Inches(2.3), color=GREEN, width=1.5, dashed=True, label="STATUSTEXT, NAMED_VALUE_FLOAT", label_dy=0.05, label_size=10)
@@ -339,11 +339,11 @@ def build(lang: str, out: Path) -> None:
     arrow(s, Inches(9.7), y + Inches(2.3), Inches(8.7), y + Inches(2.3), color=RED, width=2.25, label="udp:9003  JSON", label_dy=0.05, label_size=12)
     text(s, Inches(0.5), Inches(5.85), Inches(12.3), Inches(1.1),
          [("Lock-step: il SITL invia i PWM e aspetta il JSON; MuJoCo fa un passo da 5 ms per frame (SIM_RATE_HZ 200). Il task PPO gira ogni 4 frame = 50 Hz, come in training.", {"size": 13}),
-          ("Il task PPO non ha alcun collegamento con MuJoCo: vede solo API ArduPilot. Sostituire la pianta con IMU + bus Dynamixel reali non cambia una riga di AP_MicroDuck.", {"size": 13, "color": RED, "bold": True, "space": 6})])
+          ("Il task PPO non ha alcun collegamento con MuJoCo: vede solo API ArduPilot. Sostituire la pianta con IMU + bus Dynamixel reali non cambia una riga di AP_NNMixer.", {"size": 13, "color": RED, "bold": True, "space": 6})])
 
     # ------------------------------------------------------------------ 3 inside ArduRover
     s = prs.slides.add_slide(BLANK)
-    title(s, "2. Dentro ArduRover: il loop a 50 Hz di AP_MicroDuck", "Tutto ciò che la rete vede passa dalle librerie standard di ArduPilot.")
+    title(s, "2. Dentro ArduRover: il loop a 50 Hz di AP_NNMixer", "Tutto ciò che la rete vede passa dalle librerie standard di ArduPilot.")
     fr = frame(s, Inches(0.5), Inches(1.7), Inches(9.3), Inches(4.9), "ArduRover — scheduler (SCHED_LOOP_RATE 200)")
     bw, bh = Inches(2.15), Inches(0.8)
     ys = [Inches(2.2), Inches(3.15), Inches(4.1), Inches(5.05)]
@@ -363,10 +363,10 @@ def build(lang: str, out: Path) -> None:
     arrow(s, net.left + net.width // 2, net.top + net.height, srv.left + srv.width // 2, srv.top, label="q_target = q0 + a", label_dy=0.1, label_size=10)
     text(s, Inches(3.1), Inches(5.55), Inches(4.0), Inches(0.5), "a applicata → storia (obs[34:48]) al tick successivo", size=10, color=GREY)
     bullets(s, Inches(10.0), Inches(1.7), Inches(3.0), Inches(5.0), [
-        "update_attitude() a loop rate: propaga la direzione della gravità col gyro, la corregge con l'accelerometro (MDK_ATT_TAU 0.5 s)",
+        "update_attitude() a loop rate: propaga la direzione della gravità col gyro, la corregge con l'accelerometro (NNM_ATT_TAU 0.5 s)",
         "update() a 50 Hz: obs → forward → clip → PWM",
-        "Failsafe: disarmato, feedback giunti assente o vecchio > MDK_WD_MS → azione 0 = posa stand (anche nella storia)",
-        "HOLD (MDK_HOLD_MODE 4) → twist 0",
+        "Failsafe: disarmato, feedback giunti assente o vecchio > NNM_WD_MS → azione 0 = posa stand (anche nella storia)",
+        "HOLD (NNM_HOLD_MODE 4) → twist 0",
         "PWM: 1500 + q/0.003 (1 µs = 3 mrad), SERVOn 800..2200",
     ], size=12)
 
@@ -376,7 +376,7 @@ def build(lang: str, out: Path) -> None:
     b1 = box(s, Inches(0.5), Inches(2.0), Inches(2.6), Inches(1.5), ["MuJoCo", "gyro/accel sito IMU (FLU)", "quaternione trunk (z-up)", "qpos, qvel 14 giunti"], fill=RED_FILL, line=RED, color=RED, size=11)
     b2 = box(s, Inches(3.6), Inches(2.0), Inches(2.6), Inches(1.5), ["JSON udp:9003", "imu.gyro, imu.accel_body (FRD)", "quaternion (NED→FRD)", "joints.jpos / jvel"], fill=LIGHT, size=11)
     b3 = box(s, Inches(6.7), Inches(2.0), Inches(2.9), Inches(1.5), ["SITL / SIM_JSON.cpp", "→ INS simulata (gyro, accel)", "→ sitl->state.joint_pos/vel", "(estensione di questo repo)"], fill=BLUE_FILL, size=11)
-    b4 = box(s, Inches(10.1), Inches(2.0), Inches(2.7), Inches(1.5), ["AP_MicroDuck", "gyro FRD→FLU: (x, −y, −z)", "gravità: filtro → (x, −y, −z)", "q − q0, q̇"], fill=BLUE_FILL, size=11)
+    b4 = box(s, Inches(10.1), Inches(2.0), Inches(2.7), Inches(1.5), ["AP_NNMixer", "gyro FRD→FLU: (x, −y, −z)", "gravità: filtro → (x, −y, −z)", "q − q0, q̇"], fill=BLUE_FILL, size=11)
     for a, b in ((b1, b2), (b2, b3), (b3, b4)):
         arrow(s, a.left + a.width, a.top + a.height // 2, b.left, b.top + b.height // 2, width=2)
     bullets(s, Inches(0.5), Inches(3.9), Inches(12.3), Inches(3.0), [
@@ -395,11 +395,11 @@ def build(lang: str, out: Path) -> None:
     rows = [
         ("Comando MAVProxy", "Messaggio MAVLink", "Cosa fa in ArduRover", "Effetto sulla rete"),
         ("arm throttle [force]", "COMMAND_LONG  MAV_CMD_COMPONENT_ARM_DISARM p1=1", "AP_Arming → soft armed", "PPO_FAIL 1→0, servo attivi, la policy tiene in piedi"),
-        ("rc 2 2000", "RC_CHANNELS_OVERRIDE chan2=2000 (da sysid 255)", "RC_Channels: norm_input_dz = +1.0", "obs[48] vx = +1.0 × MDK_VX_MAX = 0.4 m/s"),
+        ("rc 2 2000", "RC_CHANNELS_OVERRIDE chan2=2000 (da sysid 255)", "RC_Channels: norm_input_dz = +1.0", "obs[48] vx = +1.0 × NNM_VX_MAX = 0.4 m/s"),
         ("rc 1 1800", "RC_CHANNELS_OVERRIDE chan1=1800", "norm = +0.6", "obs[49] vy = 0.6 × 0.3 = 0.18 m/s"),
         ("rc 4 2000", "RC_CHANNELS_OVERRIDE chan4=2000", "norm = +1.0", "obs[50] ωz = 1.0 rad/s"),
-        ("mode hold", "COMMAND_LONG  MAV_CMD_DO_SET_MODE custom_mode=4", "Rover in HOLD", "MDK_HOLD_MODE → twist forzato a 0: sta fermo"),
-        ("param set MDK_POLICY 0", "PARAM_SET", "AP_Param", "prossimo tick usa la rete MLP"),
+        ("mode hold", "COMMAND_LONG  MAV_CMD_DO_SET_MODE custom_mode=4", "Rover in HOLD", "NNM_HOLD_MODE → twist forzato a 0: sta fermo"),
+        ("param set NNM_POLICY 0", "PARAM_SET", "AP_Param", "prossimo tick usa la rete MLP"),
         ("disarm", "COMMAND_LONG  ARM_DISARM p1=0", "soft disarmed", "azione 0, storia azzerata, PWM 0 (pianta: idle)"),
     ]
     tbl = s.shapes.add_table(len(rows), 4, Inches(0.5), Inches(1.7), Inches(12.3), Inches(0.42) * len(rows)).table
@@ -419,12 +419,12 @@ def build(lang: str, out: Path) -> None:
             cell.fill.fore_color.rgb = NAVY if ri == 0 else (LIGHT if ri % 2 == 0 else RGBColor(0xFF, 0xFF, 0xFF))
     text(s, Inches(0.5), Inches(5.6), Inches(12.3), Inches(1.2),
          [("Telemetria di ritorno (NAMED_VALUE_FLOAT ogni 0.5 s): PPO_MS tempo del forward, PPO_PGZ gravità z (in piedi ≈ −1), PPO_VX comando, PPO_FAIL stato.", {"size": 13}),
-          ("Log DataFlash MDK / MDKQ / MDKV / MDKA: ogni tick con le 61 osservazioni e le 14 azioni → tools/log_parity.py le rigioca nell'ONNX (parità 2.5e-7).", {"size": 13, "space": 6})])
+          ("Log DataFlash NNM / NNMQ / NNMV / NNMA: ogni tick con le 61 osservazioni e le 14 azioni → tools/log_parity.py le rigioca nell'ONNX (parità 2.5e-7).", {"size": 13, "space": 6})])
 
     # ------------------------------------------------------------------ 6 actuator path
     s = prs.slides.add_slide(BLANK)
     title(s, "5. Percorso degli attuatori: dall'azione ai servo", "La rete produce offset in radianti; ArduPilot li trasporta come PWM; la pianta li riconverte in target di posizione.")
-    c1 = box(s, Inches(0.5), Inches(2.0), Inches(2.5), Inches(1.5), ["Rete", "a[14] rad", "clip ±MDK_ACT_MAX"], fill=BLUE_FILL, size=11)
+    c1 = box(s, Inches(0.5), Inches(2.0), Inches(2.5), Inches(1.5), ["Rete", "a[14] rad", "clip ±NNM_ACT_MAX"], fill=BLUE_FILL, size=11)
     c2 = box(s, Inches(3.4), Inches(2.0), Inches(2.5), Inches(1.5), ["q_target", "= q0 + a", "q0 = posa STAND2"], fill=BLUE_FILL, size=11)
     c3 = box(s, Inches(6.3), Inches(2.0), Inches(2.8), Inches(1.5), ["SRV_Channels", "pwm = 1500 + q/0.003", "funzioni 94..107 (Scripting1..14)"], fill=BLUE_FILL, size=11)
     c4 = box(s, Inches(9.5), Inches(2.0), Inches(3.3), Inches(1.5), ["Pianta / robot", "SITL: pacchetto servo udp:9002 → MuJoCo BAM", "HW: bus Dynamixel (tick)"], fill=RED_FILL, line=RED, color=RED, size=11)
@@ -443,10 +443,10 @@ def build(lang: str, out: Path) -> None:
     title(s, "6. L'integrazione in ArduRover, file per file", "Fork virtualrobotix/ardupilot, branch microduck-ppo, sopra master upstream del 24/09/2026. 7 file toccati + 1 libreria nuova.")
     rows = [
         ("File", "Modifica", "Perché"),
-        ("libraries/AP_MicroDuck/  (nuova)", "AP_MicroDuck.{h,cpp}, microduck_infer.{h,c}, policy_mlp.h, AP_MicroDuck_config.h", "il task: obs, filtro gravità, storia, stick, servo, MDK_*, log, telemetria; rete in C"),
-        ("Rover/Parameters.h / .cpp", "membro g2.microduck; AP_SUBGROUPINFO \"MDK_\" indice 63", "parametri MDK_* visibili da GCS e salvati in EEPROM"),
+        ("libraries/AP_NNMixer/  (nuova)", "AP_NNMixer.{h,cpp}, nnmixer_infer.{h,c}, policy_mlp.h, AP_NNMixer_config.h", "il task: obs, filtro gravità, storia, stick, servo, NNM_*, log, telemetria; rete in C"),
+        ("Rover/Parameters.h / .cpp", "membro g2.nnmixer; AP_SUBGROUPINFO \"NNM_\" indice 63", "parametri NNM_* visibili da GCS e salvati in EEPROM"),
         ("Rover/Rover.cpp", "SCHED_TASK_CLASS update_attitude 400 Hz (→ loop rate), update 50 Hz", "il task entra nello scheduler come qualunque libreria"),
-        ("Rover/wscript", "+ 'AP_MicroDuck'", "link della libreria nel binario ardurover"),
+        ("Rover/wscript", "+ 'AP_NNMixer'", "link della libreria nel binario ardurover"),
         ("libraries/SITL/SIM_JSON.h / .cpp", "tipo DATA_FLOAT_ARRAY14; chiavi joints/jpos, joints/jvel; copia in sitl->state", "il backend fisico consegna i giunti come consegna l'IMU"),
         ("libraries/SITL/SITL.h", "sitl_fdm: joint_pos[16], joint_vel[16], joint_count, joint_time_us", "sorgente SITL del joint feedback; su HW la sostituisce un driver Dynamixel"),
     ]
@@ -465,14 +465,14 @@ def build(lang: str, out: Path) -> None:
             cell.fill.solid()
             cell.fill.fore_color.rgb = NAVY if ri == 0 else (LIGHT if ri % 2 == 0 else RGBColor(0xFF, 0xFF, 0xFF))
     text(s, Inches(0.5), Inches(5.75), Inches(12.3), Inches(1.2),
-         [("Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).", {"size": 13}),
-          ("Parametri SITL (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.", {"size": 13, "space": 6})])
+         [("Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_NNMIXER_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).", {"size": 13}),
+          ("Parametri SITL (sitl/nnmixer.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, NNM_ENABLE 1.", {"size": 13, "space": 6})])
 
     # ------------------------------------------------------------------ 8 timing
     s = prs.slides.add_slide(BLANK)
     title(s, "7. Tempi e sincronizzazione", "Una sola linea del tempo, guidata dal lock-step JSON.")
     y0 = Inches(2.0)
-    lanes = [("MuJoCo  (5 ms)", RED, 40), ("SITL frame / INS  (5 ms)", NAVY, 40), ("Loop ArduRover  (5 ms)", NAVY, 40), ("AP_MicroDuck::update  (20 ms)", GREEN, 10), ("MAVProxy  (asincrono)", ORANGE, 0)]
+    lanes = [("MuJoCo  (5 ms)", RED, 40), ("SITL frame / INS  (5 ms)", NAVY, 40), ("Loop ArduRover  (5 ms)", NAVY, 40), ("AP_NNMixer::update  (20 ms)", GREEN, 10), ("MAVProxy  (asincrono)", ORANGE, 0)]
     x0, xw = Inches(3.4), Inches(9.2)
     for i, (name, col, n) in enumerate(lanes):
         y = y0 + Inches(0.75) * i
@@ -504,8 +504,8 @@ def build(lang: str, out: Path) -> None:
     n1 = box(s, Inches(0.5), Inches(2.1), Inches(2.3), Inches(1.6), ["model_1999.pt", "PyTorch: actor, critic,", "optimizer, normalizer", "(mjlab + rsl_rl, 2048×2000)"], fill=LIGHT, size=11)
     n2 = box(s, Inches(3.2), Inches(2.1), Inches(2.3), Inches(1.6), [".onnx", "actor(normalizer(obs))", "Sub(mean) → Div(std) →", "Gemm/ELU"], fill=LIGHT, size=11)
     n3 = box(s, Inches(5.9), Inches(2.1), Inches(2.5), Inches(1.6), ["policy_mlp.h", "static const float", "mean[61], std[61], pesi, q0", "773 KB MLP"], fill=BLUE_FILL, size=11)
-    n4 = box(s, Inches(8.8), Inches(2.1), Inches(2.3), Inches(1.6), ["microduck_infer.c", "forward float32", "expf, no heap", "identico SITL / MCU"], fill=BLUE_FILL, size=11)
-    n5 = box(s, Inches(11.4), Inches(2.1), Inches(1.4), Inches(1.6), ["AP_MicroDuck", "update()", "50 Hz"], fill=BLUE_FILL, size=11)
+    n4 = box(s, Inches(8.8), Inches(2.1), Inches(2.3), Inches(1.6), ["nnmixer_infer.c", "forward float32", "expf, no heap", "identico SITL / MCU"], fill=BLUE_FILL, size=11)
+    n5 = box(s, Inches(11.4), Inches(2.1), Inches(1.4), Inches(1.6), ["AP_NNMixer", "update()", "50 Hz"], fill=BLUE_FILL, size=11)
     for a, b, lab in ((n1, n2, "scripts/export.py"), (n2, n3, "tools/export_policy_c.py"), (n3, n4, "#include"), (n4, n5, "")):
         arrow(s, a.left + a.width, a.top + a.height // 2, b.left, b.top + b.height // 2, width=2, label=lab or None, label_dy=-0.35, label_size=9)
     bullets(s, Inches(0.5), Inches(4.1), Inches(12.3), Inches(2.8), [
@@ -513,13 +513,13 @@ def build(lang: str, out: Path) -> None:
             "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP)",
             "tools/log_parity.py: le osservazioni loggate dal firmware in volo → ONNX vs le azioni che il firmware ha inviato: max 2.5e-7",
             "tools/policy_rollout_plant.py: la stessa policy sulla stessa pianta senza ArduPilot — separa problemi di pianta da problemi di firmware"]),
-        ("La rete (MDK_POLICY)", [
+        ("La rete (NNM_POLICY)", [
             "0 = MLP 61→512→256→128→14 ELU, 197 896 parametri, 0.37 ms"]),
     ], size=12)
 
     # ------------------------------------------------------------------ 10 hardware
     s = prs.slides.add_slide(BLANK)
-    title(s, "9. Cosa cambia passando all'hardware", "Solo il terzo processo: la pianta MuJoCo diventa il robot. AP_MicroDuck non cambia.")
+    title(s, "9. Cosa cambia passando all'hardware", "Solo il terzo processo: la pianta MuJoCo diventa il robot. AP_NNMixer non cambia.")
     rows = [
         ("Blocco", "In SITL (oggi)", "Su robot"),
         ("IMU", "MuJoCo → JSON → INS simulata", "IMU del flight controller (stesso AP_InertialSensor)"),
@@ -551,7 +551,7 @@ def build(lang: str, out: Path) -> None:
     title(s, "10. La demo e i risultati", "scripts/demo_mavproxy.py: un comando avvia pianta, SITL e MAVProxy e digita la sequenza dell'operatore.")
     bullets(s, Inches(0.5), Inches(1.6), Inches(6.2), Inches(5.3), [
         ("Sequenza digitata in MAVProxy", [
-            "param set MDK_POLICY 0 · param set MDK_ENABLE 1",
+            "param set NNM_POLICY 0 · param set NNM_ENABLE 1",
             "mode manual · rc all 1500 · arm throttle → 6 s in piedi",
             "rc 2 2000 → avanti 3 s · rc 2 1000 → indietro 2 s",
             "rc 1 1800 → laterale 2 s · rc 4 2000 → rotazione 90° (integrale di ATTITUDE.yawspeed) · rc 2 2000 → avanti 5 s",

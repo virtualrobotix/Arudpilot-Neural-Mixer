@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""End-to-end visual demo: MuJoCo viewer + ArduRover SITL (AP_MicroDuck) + MAVProxy driving it.
+"""End-to-end visual demo: MuJoCo viewer + ArduRover SITL (AP_NNMixer) + MAVProxy driving it.
 
 Starts the three processes and then types a command sequence into MAVProxy, exactly what an
 operator would do at the console (arm, sticks with `rc`, `mode hold`, `disarm`), while the duck
@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PY = ROOT / ".venv" / "bin" / "python"
 ARDUROVER = ROOT / "ardupilot" / "build" / "sitl" / "bin" / "ardurover"
 RUN_DIR = ROOT / "sitl" / "run"
-PARM = ROOT / "sitl" / "microduck.parm"
+PARM = ROOT / "sitl" / "nnmixer.parm"
 
 
 OVERLAY = RUN_DIR / "overlay.jsonl"
@@ -122,7 +122,7 @@ class Demo:
     def start_mavproxy(self):
         mavproxy = shutil.which("mavproxy.py") or "mavproxy.py"
         cmd = [mavproxy, "--master", "tcp:127.0.0.1:5760", "--out", "udp:127.0.0.1:14550",
-               "--streamrate", "20", "--aircraft", "microduck"]
+               "--streamrate", "20", "--aircraft", "nnmixer"]
         if self.args.console:
             cmd.append("--console")  # needs wxPython in MAVProxy's python
         self.mav = subprocess.Popen(cmd, stdin=subprocess.PIPE, cwd=RUN_DIR, text=True, bufsize=1)
@@ -155,8 +155,8 @@ class Demo:
             self.send("module load graph", 1.0)
             self.send("graph NAMED_VALUE_FLOAT[PPO_PGZ].value NAMED_VALUE_FLOAT[PPO_VX].value NAMED_VALUE_FLOAT[PPO_FAIL].value", 1.0)
         pol = "Cartan" if a.policy == 1 else "MLP"
-        self.send(f"param set MDK_POLICY {a.policy}", 1.0, phase=f"setup: policy {pol}")
-        self.send("param set MDK_ENABLE 1", 1.0)
+        self.send(f"param set NNM_POLICY {a.policy}", 1.0, phase=f"setup: policy {pol}")
+        self.send("param set NNM_ENABLE 1", 1.0)
         self.send("mode manual", 1.0)
         self.send("rc all 1500", 1.0, phase="sticks centred")
         self.send("arm throttle force", 1.0, phase=f"ARMED - standing ({pol})")
@@ -270,9 +270,9 @@ def main() -> None:
     ap.add_argument("--console", action="store_true", help="MAVProxy console window (needs wxPython)")
     ap.add_argument("--graph", action="store_true", help="MAVProxy live graph of PPO_* (needs wxPython)")
     ap.add_argument("--video", type=Path, default=None, help="also record an mp4 of the MuJoCo plant")
-    ap.add_argument("--rc-fwd", type=int, default=2000, help="rc2 for the forward leg (2000 = MDK_VX_MAX)")
+    ap.add_argument("--rc-fwd", type=int, default=2000, help="rc2 for the forward leg (2000 = NNM_VX_MAX)")
     ap.add_argument("--rc-lat", type=int, default=1800)
-    ap.add_argument("--rc-turn", type=int, default=2000, help="rc4 for the turn leg (2000 = MDK_WZ_MAX)")
+    ap.add_argument("--rc-turn", type=int, default=2000, help="rc4 for the turn leg (2000 = NNM_WZ_MAX)")
     ap.add_argument("--boot-wait", type=float, default=12.0)
     ap.add_argument("--t-stand", type=float, default=6.0)
     ap.add_argument("--t-fwd", type=float, default=3.0, help="first forward leg (s)")
