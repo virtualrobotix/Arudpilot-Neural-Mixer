@@ -31,7 +31,7 @@ Slide del brevetto (AI Autopilot neuro-adattivo, Patent Pending 102026000009919)
 
 1. [Il problema che risolve](#1-il-problema-che-risolve)
 2. [Come è stata addestrata la rete (il file `.pt`)](#2-come-è-stata-addestrata-la-rete-il-file-pt)
-3. [Le due reti: MLP e Cartan](#3-le-due-reti-mlp-e-cartan)
+3. [La rete: MLP](#3-la-rete-mlp)
 4. [Da `.pt` al codice C nel firmware](#4-da-pt-al-codice-c-nel-firmware)
 5. [Architettura dell'integrazione](#5-architettura-dellintegrazione)
 6. [Cosa è stato modificato in ArduPilot](#6-cosa-è-stato-modificato-in-ardupilot)
@@ -155,8 +155,8 @@ MuJoCo Warp di controllare la pianta MuJoCo su CPU di questo repo — e, dopo, i
 | Clip / bonus entropia | 0.2 / 0.01 |
 | Normalizzazione osservazioni | attiva (media/dev. std. correnti, vedi §4) |
 | Checkpoint | `model_<iterazione>.pt` ogni 250 iterazioni; quello deployato è `model_1999.pt` |
-| Tempo macchina | MLP ≈ 1,6 s/iterazione ≈ **55 min**; Cartan ≈ 2,2 s/iterazione ≈ **73 min** |
-| Reward medio finale / lunghezza episodio | MLP 105 / 913 passi; Cartan 99 / 920 passi (su 1000) |
+| Tempo macchina | ≈ 1,6 s/iterazione ≈ **55 min** |
+| Reward medio finale / lunghezza episodio | 105 / 913 passi (su 1000) |
 
 Due parole spesso confuse: una **iterazione** è un ciclo "raccogli 49 152 campioni, poi impara da loro";
 un'**epoca** è una passata su quei campioni dentro la fase di apprendimento (5 per iterazione). Le iterazioni
@@ -170,30 +170,11 @@ osservazioni** (61 medie e 61 deviazioni standard accumulate in training). Si de
 
 ---
 
-## 3. Le due reti: MLP e Cartan
+## 3. La rete: MLP
 
-Stesso task, stessa ricompensa, stesso budget 2048 × 2000, stessi seed. Cambia solo la classe di rete
-dentro actor e critic.
-
-### 3.1 MLP (`MDK_POLICY 0`) — il riferimento
-
-Un percettrone multistrato classico: `61 → 512 → 256 → 128 → 14`, attivazione **ELU** fra gli strati.
-197 896 parametri (773 KB in float32). È quello delle policy ufficiali Pollen.
-
-### 3.2 Cartan (`MDK_POLICY 1`) — la sperimentale
-
-Una **Cartan Network** ([arXiv:2505.24353](https://arxiv.org/abs/2505.24353)) con attivazione **DiLU**.
-Invece di impilare strati lineari, ogni strato lavora su un punto di un gruppo di Lie risolubile (uno spazio
-iperbolico in "coordinate di Cartan": uno scalare `c` più un vettore di 192 detto *fiber* o *paint*). Uno
-strato fa: mappa lineare sul fiber, traslazione di gruppo (`beta`), *rotazione del fiber* con un vettore
-unitario (`theta`) — operazione non lineare con `exp`, `log` e un prodotto scalare — poi DiLU
-`(ELU(x) + 0.1x)/1.1` sul fiber. La lettura finale moltiplica il fiber per `exp(c)` e applica uno strato lineare.
-
-Forma: `61 → 192 (embedding) → 3 × CartanLinear(193) → 14`. 127 054 parametri (496 KB float32, **−36 %**
-rispetto all'MLP) e meno moltiplicazioni per passo. In laboratorio è competitiva sui task geometrici e sui
-quadrupedi; sul MicroDuck a 2000 iterazioni l'MLP ha ancora reward migliore (105 vs 99) e tracking migliore,
-mentre Cartan è più leggera e più veloce da valutare (0,25 ms vs 0,37 ms per passo in questo SITL). Entrambe
-stanno in piedi e camminano in questo repo.
+La policy deployata è un percettrone multistrato classico (`MDK_POLICY 0`): `61 → 512 → 256 → 128 → 14`,
+attivazione **ELU** fra gli strati. 197 896 parametri (773 KB in float32). È quello delle policy ufficiali
+Pollen. In questo SITL il forward impiega circa 0,37 ms per passo. La rete sta in piedi e cammina in questo repo.
 
 ---
 
@@ -202,13 +183,13 @@ stanno in piedi e camminano in questo repo.
 1. **Export in ONNX** (in `microduck_rl`, `scripts/export.py`): traccia `actor(normalizer(obs))`. Il
    normalizzatore è *cotto* nel grafo: i primi due nodi ONNX sono `Sub(mean)` e `Div(std)`. Per questo il
    firmware non calcola mai medie o deviazioni: sono costanti apprese in training, come i pesi.
-2. **ONNX → header C** (`tools/export_policy_c.py` per l'MLP, `tools/export_cartan_c.py` per Cartan): legge
-   gli initializer e scrive `policy_mlp.h` / `policy_cartan.h` con `mean[61]`, `std[61]`, tutte le matrici dei
+2. **ONNX → header C** (`tools/export_policy_c.py`): legge
+   gli initializer e scrive `policy_mlp.h` con `mean[61]`, `std[61]`, tutte le matrici dei
    pesi come `static const float` e `q0`.
 3. **Forward in C** (`tools/microduck_infer.c`, copiato tal quale in `libraries/AP_MicroDuck/`):
-   `microduck_forward()` per l'MLP e `microduck_cartan_forward()` per Cartan. Float32, nessun heap, solo `expf` e `logf`.
+   `microduck_forward()` per l'MLP. Float32, nessun heap, solo `expf`.
 4. **Test di parità**: `tools/parity_check.py` passa 2201 osservazioni in ONNX Runtime e nel binario C —
-   differenza massima 3,8e-6 (MLP), 6,0e-5 (Cartan). `tools/log_parity.py` fa lo stesso con le osservazioni
+   differenza massima 3,8e-6 (MLP). `tools/log_parity.py` fa lo stesso con le osservazioni
    che il *firmware* ha loggato durante una corsa, contro le azioni che il firmware ha davvero inviato
    (max 2,5e-7). La rete nel firmware è la rete addestrata in laboratorio.
 
@@ -259,14 +240,14 @@ Fork [`virtualrobotix/ardupilot`](https://github.com/virtualrobotix/ardupilot/tr
 
 | File | Modifica |
 |---|---|
-| `libraries/AP_MicroDuck/` (nuova) | `AP_MicroDuck.{h,cpp}`: osservazione, filtro gravità, storia azioni, stick, uscite servo, parametri `MDK_*`, log `MDK/MDKQ/MDKV/MDKA`, `NAMED_VALUE_FLOAT PPO_*`; `microduck_infer.{h,c}`; `policy_mlp.h`, `policy_cartan.h` |
+| `libraries/AP_MicroDuck/` (nuova) | `AP_MicroDuck.{h,cpp}`: osservazione, filtro gravità, storia azioni, stick, uscite servo, parametri `MDK_*`, log `MDK/MDKQ/MDKV/MDKA`, `NAMED_VALUE_FLOAT PPO_*`; `microduck_infer.{h,c}`; `policy_mlp.h` |
 | `libraries/SITL/SIM_JSON.{h,cpp}` | parsing di `joints/jpos`, `joints/jvel` (tipo `DATA_FLOAT_ARRAY14`) |
 | `libraries/SITL/SITL.h` | `sitl_fdm.joint_pos/joint_vel/joint_count/joint_time_us` |
 | `Rover/Parameters.{h,cpp}` | `g2.microduck`, gruppo `MDK_` (indice 63) |
 | `Rover/Rover.cpp` | scheduler: `update_attitude` a loop rate, `update` a 50 Hz |
 | `Rover/wscript` | link di `AP_MicroDuck` |
 
-Parametri (`sitl/microduck.parm` li imposta per il SITL): `MDK_ENABLE`, `MDK_POLICY` (0 MLP / 1 Cartan),
+Parametri (`sitl/microduck.parm` li imposta per il SITL): `MDK_ENABLE`, `MDK_POLICY` (0 MLP),
 `MDK_VX_MAX 0.4`, `MDK_VY_MAX 0.3`, `MDK_WZ_MAX 1.0`, `MDK_WD_MS 40` (watchdog feedback giunti),
 `MDK_ATT_SRC` (0 filtro IMU / 1 AHRS, debug), `MDK_ATT_TAU 0.5`, `MDK_RC_VX/VY/WZ 2/1/4`, `MDK_ACT_MAX 2.0`,
 `MDK_LOG`, `MDK_HOLD_MODE 4`, `MDK_SRV_FN0 94`. Più `SERVO1..14_FUNCTION 94..107`, `SIM_RATE_HZ 200`,
@@ -296,7 +277,6 @@ Rigenerare gli header C da altri checkpoint:
 
 ```bash
 .venv/bin/python tools/export_policy_c.py  mio_mlp.onnx    --out ardupilot/libraries/AP_MicroDuck/policy_mlp.h    --name mlp
-.venv/bin/python tools/export_cartan_c.py  mio_cartan.onnx --out ardupilot/libraries/AP_MicroDuck/policy_cartan.h --name cartan
 .venv/bin/python tools/parity_check.py mio_mlp.onnx --name mlp            # deve stampare PARITY OK
 ```
 
@@ -308,7 +288,6 @@ Demo visiva in un comando (finestra MuJoCo + SITL + MAVProxy digitato dallo scri
 
 ```bash
 .venv/bin/python scripts/demo_mavproxy.py                  # MLP
-.venv/bin/python scripts/demo_mavproxy.py --policy 1       # Cartan
 .venv/bin/python scripts/demo_mavproxy.py --video out.mp4 --keep
 ```
 
@@ -325,7 +304,6 @@ Batteria HIL automatica (SITL avviato headless, es. `scripts/run_sitl.sh --no-ma
 
 ```bash
 .venv/bin/python scripts/hil_test.py battery               # MLP
-.venv/bin/python scripts/hil_test.py battery --policy 1    # Cartan
 ```
 
 Passi e criteri: arm; stand 15 s (`PPO_FAIL 0`, `PPO_PGZ < −0.9`); avanti `rc 2 1750` 12 s (`PPO_VX ≈ 0.2`,
@@ -342,14 +320,14 @@ Rollout di riferimento senza ArduPilot (solo policy ↔ pianta), utile per separ
 
 ## 9. Risultati
 
-| | MLP (`MDK_POLICY 0`) | Cartan (`MDK_POLICY 1`) |
-|---|---|---|
-| Parità C vs ONNX (offline, 2201 osservazioni) | max 3,8e-6 | max 6,0e-5 |
-| Parità in-situ (obs loggate dal firmware → ONNX vs azioni firmware) | max 2,5e-7 | p99 1,3e-6 |
-| Forward nel SITL (Apple Silicon, `-O2`) | ~0,37 ms | ~0,25 ms |
-| Pesi in flash (float32) | 773 KB | 496 KB |
-| Batteria HIL (arm, stand, avanti, laterale, rotazione, HOLD, disarm, parità) | 8/8 PASS | 8/8 PASS |
-| Avanti a comando 0,3 / 0,4 m/s, 15 s ciascuno + rotazione | nessuna caduta, ~0,15–0,25 m/s effettivi | — |
+| | MLP (`MDK_POLICY 0`) |
+|---|---|
+| Parità C vs ONNX (offline, 2201 osservazioni) | max 3,8e-6 |
+| Parità in-situ (obs loggate dal firmware → ONNX vs azioni firmware) | max 2,5e-7 |
+| Forward nel SITL (Apple Silicon, `-O2`) | ~0,37 ms |
+| Pesi in flash (float32) | 773 KB |
+| Batteria HIL (arm, stand, avanti, laterale, rotazione, HOLD, disarm, parità) | 8/8 PASS |
+| Avanti a comando 0,3 / 0,4 m/s, 15 s ciascuno + rotazione | nessuna caduta, ~0,15–0,25 m/s effettivi |
 
 **La lezione che è costata una mattinata.** Il primo HIL cadeva dopo un secondo pur con osservazioni e rete
 perfette (parità esatta). Causa: ArduRover ha `INS_GYRO_FILTER` **4 Hz** di default (sensato per un veicolo a
@@ -367,7 +345,7 @@ oltre agli stick.
 
 `Pixhawk6C-MicroDuck` è un target ArduRover dedicato allo STM32H743 (480 MHz, flash 2 MB, RAM 1 MB).
 La MLP float32 entra disabilitando i sottosistemi Rover non usati dal MicroDuck: il firmware occupa
-1.942.616 byte e lascia 23.464 byte liberi. Le due policy float32 insieme non entrano nei 2 MB.
+1.942.616 byte e lascia 23.464 byte liberi.
 
 Il firmware è stato caricato e provato su una Pixhawk 6C Mini reale. MuJoCo scambia stato
 `DEBUG_FLOAT_ARRAY` e attuazioni `SERVO_OUTPUT_RAW` via MAVLink USB usando
@@ -390,9 +368,9 @@ e inclinazione del tronco di circa 0,3–0,8°.
 | `ardupilot/` | submodule: fork, branch `microduck-ppo` |
 | `ardupilot/libraries/AP_MicroDuck/` | il task, il forward C, gli header dei pesi generati |
 | `plant/mujoco_json_plant.py` | pianta MuJoCo: protocollo SIM_JSON, attuatori BAM, frame, registrazione mp4 opzionale con overlay dei comandi |
-| `policies/` | i due export ONNX validati (iterazione 1999) |
-| `tools/export_policy_c.py`, `tools/export_cartan_c.py` | ONNX → header C |
-| `tools/microduck_infer.{h,c}` | forward C (MLP e Cartan) |
+| `policies/` | l'export ONNX MLP validato (iterazione 1999) |
+| `tools/export_policy_c.py` | ONNX → header C |
+| `tools/microduck_infer.{h,c}` | forward C (MLP) |
 | `tools/parity_check.py`, `tools/parity_check*.c` | ONNX Runtime vs C |
 | `tools/log_parity.py` | log del firmware vs ONNX |
 | `tools/policy_rollout_plant.py` | policy ↔ pianta senza ArduPilot |
@@ -422,8 +400,6 @@ e inclinazione del tronco di circa 0,3–0,8°.
 - **`.pt`** — checkpoint PyTorch (pesi + ottimizzatore + normalizzatore).
 - **PPO** — Proximal Policy Optimization, l'algoritmo di RL usato (implementazione `rsl_rl`).
 - **MLP** — percettrone multistrato, la rete completamente connessa standard.
-- **Cartan Network / DiLU** — la famiglia di reti alternativa di arXiv:2505.24353, che opera su un gruppo di Lie
-  risolubile; DiLU è la sua attivazione.
 - **SITL** — Software In The Loop: il firmware ArduPilot vero compilato per PC, con sensori simulati.
 - **HIL** — Hardware In The Loop; qui usato in senso lato per "firmware nel loop con una pianta fisica esterna".
 - **Pianta** — termine dell'ingegneria del controllo per il sistema fisico controllato (il corpo del robot).

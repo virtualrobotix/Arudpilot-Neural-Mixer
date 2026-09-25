@@ -31,7 +31,7 @@ Patent slides (neuro-adaptive AI Autopilot, Patent Pending 102026000009919): **E
 
 1. [What problem this solves](#1-what-problem-this-solves)
 2. [How the network was trained (the `.pt` file)](#2-how-the-network-was-trained-the-pt-file)
-3. [The two networks: MLP and Cartan](#3-the-two-networks-mlp-and-cartan)
+3. [The network: MLP](#3-the-network-mlp)
 4. [From `.pt` to C code in the firmware](#4-from-pt-to-c-code-in-the-firmware)
 5. [Architecture of the integration](#5-architecture-of-the-integration)
 6. [What was changed in ArduPilot](#6-what-was-changed-in-ardupilot)
@@ -156,8 +156,8 @@ MuJoCo plant of this repo — and, later, the real robot.
 | Clip ratio / entropy bonus | 0.2 / 0.01 |
 | Observation normalization | on (running mean/std, see §4) |
 | Checkpoints | `model_<iteration>.pt` every 250 iterations; the deployed one is `model_1999.pt` |
-| Wall time | MLP ≈ 1.6 s/iteration ≈ **55 min**; Cartan ≈ 2.2 s/iteration ≈ **73 min** |
-| Final mean reward / episode length | MLP 105 / 913 steps; Cartan 99 / 920 steps (of 1000) |
+| Wall time | ≈ 1.6 s/iteration ≈ **55 min** |
+| Final mean reward / episode length | 105 / 913 steps (of 1000) |
 
 Note the two words that are often confused: an **iteration** is one cycle of "collect 49 152 samples, then
 learn from them"; an **epoch** is one pass over those samples inside the learning phase (5 per iteration).
@@ -172,30 +172,12 @@ deployed.
 
 ---
 
-## 3. The two networks: MLP and Cartan
+## 3. The network: MLP
 
-Both were trained on the same task, same reward, same 2048 × 2000 budget, same seeds. Only the network class
-inside actor and critic changes.
-
-### 3.1 MLP (`MDK_POLICY 0`) — the reference
-
-A plain multilayer perceptron: `61 → 512 → 256 → 128 → 14`, activation **ELU** between layers.
-197 896 parameters (773 KB as float32). This is what the official Pollen policies use.
-
-### 3.2 Cartan (`MDK_POLICY 1`) — the experimental one
-
-A **Cartan Network** ([arXiv:2505.24353](https://arxiv.org/abs/2505.24353)) with the **DiLU** activation.
-Instead of stacking linear layers, each layer works on a point of a solvable Lie group (a hyperbolic space in
-"Cartan coordinates": one scalar `c`, plus a 192-vector called the *fiber* or *paint*). A layer does: a linear
-map on the fiber, a group translation (`beta`), and a *fiber rotation* by a unit vector (`theta`) — a
-non-linear operation involving `exp`, `log` and a dot product — then DiLU `(ELU(x) + 0.1x)/1.1` on the fiber.
-The readout multiplies the fiber by `exp(c)` and applies a final linear layer.
-
-Shape: `61 → 192 (embedding) → 3 × CartanLinear(193) → 14`. 127 054 parameters (496 KB float32, **−36 %**
-vs MLP) and fewer multiply-accumulates per step. In the lab it was competitive on geometric tasks and on
-quadrupeds; on the MicroDuck at 2000 iterations the MLP still has the better reward (105 vs 99) and better
-speed tracking, while Cartan is lighter and faster to evaluate (0.25 ms vs 0.37 ms per step in this SITL).
-Both stand and walk in this repo.
+The deployed policy is a plain multilayer perceptron (`MDK_POLICY 0`): `61 → 512 → 256 → 128 → 14`,
+activation **ELU** between layers. 197 896 parameters (773 KB as float32). This is what the official
+Pollen policies use. In this SITL the forward pass takes about 0.37 ms per step. The network stands
+and walks in this repo.
 
 ---
 
@@ -205,14 +187,14 @@ Both stand and walk in this repo.
    normalizer is *baked* into the graph: the first two ONNX nodes are `Sub(mean)` and `Div(std)`. This is why
    the firmware never has to compute means or standard deviations — they are constants learned during
    training, exactly like the weights.
-2. **ONNX → C header** (`tools/export_policy_c.py` for the MLP, `tools/export_cartan_c.py` for Cartan):
-   reads the initializers and writes `policy_mlp.h` / `policy_cartan.h` with `mean[61]`, `std[61]` and all
+2. **ONNX → C header** (`tools/export_policy_c.py`):
+   reads the initializers and writes `policy_mlp.h` with `mean[61]`, `std[61]` and all
    weight matrices as `static const float` arrays, plus `q0`.
 3. **Forward pass in C** (`tools/microduck_infer.c`, copied verbatim into `libraries/AP_MicroDuck/`):
-   `microduck_forward()` for the MLP and `microduck_cartan_forward()` for Cartan. Float32, no heap, only `expf`
-   and `logf` from libm.
+   `microduck_forward()` for the MLP. Float32, no heap, only `expf`
+   from libm.
 4. **Parity tests**: `tools/parity_check.py` runs 2201 observations through ONNX Runtime and through the C
-   binary — max difference 3.8e-6 (MLP), 6.0e-5 (Cartan). `tools/log_parity.py` does the same with the
+   binary — max difference 3.8e-6 (MLP). `tools/log_parity.py` does the same with the
    observations the *firmware* logged during a flight, against the actions the firmware actually sent
    (max 2.5e-7). The network in the firmware is the network the lab trained.
 
@@ -263,14 +245,14 @@ Fork [`virtualrobotix/ardupilot`](https://github.com/virtualrobotix/ardupilot/tr
 
 | File | Change |
 |---|---|
-| `libraries/AP_MicroDuck/` (new) | `AP_MicroDuck.{h,cpp}`: observation, gravity filter, action history, sticks, servo output, parameters `MDK_*`, dataflash `MDK/MDKQ/MDKV/MDKA`, `NAMED_VALUE_FLOAT PPO_*`; `microduck_infer.{h,c}`; `policy_mlp.h`, `policy_cartan.h` |
+| `libraries/AP_MicroDuck/` (new) | `AP_MicroDuck.{h,cpp}`: observation, gravity filter, action history, sticks, servo output, parameters `MDK_*`, dataflash `MDK/MDKQ/MDKV/MDKA`, `NAMED_VALUE_FLOAT PPO_*`; `microduck_infer.{h,c}`; `policy_mlp.h` |
 | `libraries/SITL/SIM_JSON.{h,cpp}` | parse `joints/jpos`, `joints/jvel` (type `DATA_FLOAT_ARRAY14`) |
 | `libraries/SITL/SITL.h` | `sitl_fdm.joint_pos/joint_vel/joint_count/joint_time_us` |
 | `Rover/Parameters.{h,cpp}` | `g2.microduck`, group `MDK_` (index 63) |
 | `Rover/Rover.cpp` | scheduler: `update_attitude` @ loop rate, `update` @ 50 Hz |
 | `Rover/wscript` | link `AP_MicroDuck` |
 
-Parameters (`sitl/microduck.parm` sets them for SITL): `MDK_ENABLE`, `MDK_POLICY` (0 MLP / 1 Cartan),
+Parameters (`sitl/microduck.parm` sets them for SITL): `MDK_ENABLE`, `MDK_POLICY` (0 MLP),
 `MDK_VX_MAX 0.4`, `MDK_VY_MAX 0.3`, `MDK_WZ_MAX 1.0`, `MDK_WD_MS 40` (joint-feedback watchdog),
 `MDK_ATT_SRC` (0 IMU filter / 1 AHRS, debug), `MDK_ATT_TAU 0.5`, `MDK_RC_VX/VY/WZ 2/1/4`, `MDK_ACT_MAX 2.0`,
 `MDK_LOG`, `MDK_HOLD_MODE 4`, `MDK_SRV_FN0 94`. Plus `SERVO1..14_FUNCTION 94..107`, `SIM_RATE_HZ 200`,
@@ -300,7 +282,6 @@ Regenerating the C headers from other checkpoints:
 
 ```bash
 .venv/bin/python tools/export_policy_c.py  my_mlp.onnx    --out ardupilot/libraries/AP_MicroDuck/policy_mlp.h    --name mlp
-.venv/bin/python tools/export_cartan_c.py  my_cartan.onnx --out ardupilot/libraries/AP_MicroDuck/policy_cartan.h --name cartan
 .venv/bin/python tools/parity_check.py my_mlp.onnx --name mlp            # must print PARITY OK
 ```
 
@@ -312,7 +293,6 @@ One-command visual demo (MuJoCo window + SITL + MAVProxy typed by the script):
 
 ```bash
 .venv/bin/python scripts/demo_mavproxy.py                  # MLP
-.venv/bin/python scripts/demo_mavproxy.py --policy 1       # Cartan
 .venv/bin/python scripts/demo_mavproxy.py --video out.mp4 --keep
 ```
 
@@ -329,7 +309,6 @@ Automatic HIL battery (SITL started headless, e.g. `scripts/run_sitl.sh --no-mav
 
 ```bash
 .venv/bin/python scripts/hil_test.py battery               # MLP
-.venv/bin/python scripts/hil_test.py battery --policy 1    # Cartan
 ```
 
 Steps and pass criteria: arm; stand 15 s (`PPO_FAIL 0`, `PPO_PGZ < −0.9`); forward `rc 2 1750` 12 s
@@ -346,14 +325,14 @@ Reference rollout without ArduPilot (policy ↔ plant only), useful to separate 
 
 ## 9. Results
 
-| | MLP (`MDK_POLICY 0`) | Cartan (`MDK_POLICY 1`) |
-|---|---|---|
-| Parity C vs ONNX (offline, 2201 observations) | max 3.8e-6 | max 6.0e-5 |
-| Parity in-situ (firmware-logged obs → ONNX vs firmware actions) | max 2.5e-7 | p99 1.3e-6 |
-| Forward pass in SITL (Apple Silicon, `-O2`) | ~0.37 ms | ~0.25 ms |
-| Weights in flash (float32) | 773 KB | 496 KB |
-| HIL battery (arm, stand, forward, lateral, turn, HOLD, disarm, parity) | 8/8 PASS | 8/8 PASS |
-| Forward at 0.3 / 0.4 m/s command, 15 s each + turn | no fall, ~0.15–0.25 m/s achieved | — |
+| | MLP (`MDK_POLICY 0`) |
+|---|---|
+| Parity C vs ONNX (offline, 2201 observations) | max 3.8e-6 |
+| Parity in-situ (firmware-logged obs → ONNX vs firmware actions) | max 2.5e-7 |
+| Forward pass in SITL (Apple Silicon, `-O2`) | ~0.37 ms |
+| Weights in flash (float32) | 773 KB |
+| HIL battery (arm, stand, forward, lateral, turn, HOLD, disarm, parity) | 8/8 PASS |
+| Forward at 0.3 / 0.4 m/s command, 15 s each + turn | no fall, ~0.15–0.25 m/s achieved |
 
 **The lesson that cost a morning.** The first HIL run fell after one second although observations and
 network were perfect (parity exact). Cause: ArduRover's default `INS_GYRO_FILTER` is **4 Hz** (sensible for a
@@ -371,7 +350,7 @@ addition to sticks.
 
 `Pixhawk6C-MicroDuck` is a dedicated ArduRover target for the STM32H743 (480 MHz, 2 MB flash, 1 MB RAM).
 The float32 MLP fits after disabling Rover subsystems not used by MicroDuck; the firmware uses
-1,942,616 bytes and leaves 23,464 bytes free. Both float32 policies cannot coexist in 2 MB.
+1,942,616 bytes and leaves 23,464 bytes free.
 
 The firmware was flashed and tested on a physical Pixhawk 6C Mini. MuJoCo exchanges
 `DEBUG_FLOAT_ARRAY` state packets and `SERVO_OUTPUT_RAW` actuator packets over MAVLink USB using
@@ -394,9 +373,9 @@ approximately 0.3–0.8° trunk tilt.
 | `ardupilot/` | submodule: fork, branch `microduck-ppo` |
 | `ardupilot/libraries/AP_MicroDuck/` | the task, the C forward pass, the generated weight headers |
 | `plant/mujoco_json_plant.py` | MuJoCo plant: SIM_JSON protocol, BAM actuators, frames, optional mp4 recording with command overlay |
-| `policies/` | the two validated ONNX exports (iteration 1999) |
-| `tools/export_policy_c.py`, `tools/export_cartan_c.py` | ONNX → C headers |
-| `tools/microduck_infer.{h,c}` | C forward pass (MLP and Cartan) |
+| `policies/` | the validated MLP ONNX export (iteration 1999) |
+| `tools/export_policy_c.py` | ONNX → C header |
+| `tools/microduck_infer.{h,c}` | C forward pass (MLP) |
 | `tools/parity_check.py`, `tools/parity_check*.c` | ONNX Runtime vs C |
 | `tools/log_parity.py` | firmware logs vs ONNX |
 | `tools/policy_rollout_plant.py` | policy ↔ plant without ArduPilot |
@@ -426,8 +405,6 @@ approximately 0.3–0.8° trunk tilt.
 - **`.pt`** — a PyTorch checkpoint (weights + optimizer + normalizer).
 - **PPO** — Proximal Policy Optimization, the RL algorithm used (`rsl_rl` implementation).
 - **MLP** — multilayer perceptron, the standard fully-connected network.
-- **Cartan Network / DiLU** — the alternative network family from arXiv:2505.24353, operating on a solvable
-  Lie group; DiLU is its activation.
 - **SITL** — Software In The Loop: the real ArduPilot firmware compiled for the PC, with simulated sensors.
 - **HIL** — Hardware In The Loop; here used loosely for "firmware in the loop with an external physics plant".
 - **Plant** — control-engineering term for the physical system being controlled (the robot body).

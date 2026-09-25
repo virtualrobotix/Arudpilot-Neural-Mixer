@@ -108,7 +108,7 @@ TR = {
     "PPO_FAIL 1→0, servo attivi, la policy tiene in piedi": "PPO_FAIL 1→0, servos live, the policy keeps it standing",
     "RC_CHANNELS_OVERRIDE chan2=2000 (da sysid 255)": "RC_CHANNELS_OVERRIDE chan2=2000 (from sysid 255)",
     "MDK_HOLD_MODE → twist forzato a 0: sta fermo": "MDK_HOLD_MODE → twist forced to 0: stands still",
-    "prossimo tick usa la rete Cartan": "next tick uses the Cartan network",
+    "prossimo tick usa la rete MLP": "next tick uses the MLP network",
     "azione 0, storia azzerata, PWM 0 (pianta: idle)": "action 0, history cleared, PWM 0 (plant: idle)",
     "Telemetria di ritorno (NAMED_VALUE_FLOAT ogni 0.5 s): PPO_MS tempo del forward, PPO_PGZ gravità z (in piedi ≈ −1), PPO_VX comando, PPO_FAIL stato.":
         "Return telemetry (NAMED_VALUE_FLOAT every 0.5 s): PPO_MS forward time, PPO_PGZ gravity z (standing ≈ −1), PPO_VX command, PPO_FAIL state.",
@@ -139,8 +139,8 @@ TR = {
     "tipo DATA_FLOAT_ARRAY14; chiavi joints/jpos, joints/jvel; copia in sitl->state": "type DATA_FLOAT_ARRAY14; keys joints/jpos, joints/jvel; copied into sitl->state",
     "il backend fisico consegna i giunti come consegna l'IMU": "the physics backend delivers the joints the same way it delivers the IMU",
     "sorgente SITL del joint feedback; su HW la sostituisce un driver Dynamixel": "SITL source of the joint feedback; on HW a Dynamixel driver replaces it",
-    "Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB + ~500 KB di flash in float32).":
-        "No change to RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: the task uses their public APIs. AP_MICRODUCK_ENABLED is 1 on SITL; boards must opt in (weights ~770 KB + ~500 KB of flash as float32).",
+    "Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).":
+        "No change to RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: the task uses their public APIs. AP_MICRODUCK_ENABLED is 1 on SITL; boards must opt in (weights ~770 KB of flash as float32).",
     "Parametri SITL (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.":
         "SITL parameters (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.",
     "7. Tempi e sincronizzazione": "7. Timing and synchronisation",
@@ -148,18 +148,17 @@ TR = {
     "Loop ArduRover  (5 ms)": "ArduRover loop  (5 ms)", "MAVProxy  (asincrono)": "MAVProxy  (asynchronous)",
     "SITL manda i PWM → MuJoCo fa 1 passo (5 ms) → risponde col JSON → il SITL avanza il suo clock di 5 ms. Nessuno dei due può correre avanti.":
         "The SITL sends the PWM → MuJoCo takes 1 step (5 ms) → replies with the JSON → the SITL advances its clock by 5 ms. Neither side can run ahead.",
-    "Il task a 50 Hz vede 4 passi fisici per azione, come in training (decimation 4). Il forward dura 0.25–0.37 ms sul Mac; su STM32H7 stimati 1–2 ms.":
-        "The 50 Hz task sees 4 physics steps per action, as in training (decimation 4). The forward pass takes 0.25–0.37 ms on the Mac; 1–2 ms estimated on an STM32H7.",
+    "Il task a 50 Hz vede 4 passi fisici per azione, come in training (decimation 4). Il forward dura ~0.37 ms sul Mac; su STM32H7 stimati 1–2 ms.":
+        "The 50 Hz task sees 4 physics steps per action, as in training (decimation 4). The forward pass takes ~0.37 ms on the Mac; 1–2 ms estimated on an STM32H7.",
     "8. Da .pt a C: come la rete addestrata entra nel firmware": "8. From .pt to C: how the trained network enters the firmware",
     "Il normalizzatore delle osservazioni è parte della rete, non del simulatore.": "The observation normalizer is part of the network, not of the simulator.",
-    "Gemm/ELU… o Cartan": "Gemm/ELU… or Cartan", "mean[61], std[61], pesi, q0": "mean[61], std[61], weights, q0", "identico SITL / MCU": "identical SITL / MCU",
+    "Gemm/ELU": "Gemm/ELU", "mean[61], std[61], pesi, q0": "mean[61], std[61], weights, q0", "identico SITL / MCU": "identical SITL / MCU",
     "Verifica in tre punti": "Verified at three points",
-    "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP), 6.0e-5 (Cartan)": "tools/parity_check.py: 2201 observations → ONNX Runtime vs the C binary: max 3.8e-6 (MLP), 6.0e-5 (Cartan)",
+    "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP)": "tools/parity_check.py: 2201 observations → ONNX Runtime vs the C binary: max 3.8e-6 (MLP)",
     "tools/log_parity.py: le osservazioni loggate dal firmware in volo → ONNX vs le azioni che il firmware ha inviato: max 2.5e-7": "tools/log_parity.py: observations logged by the firmware while running → ONNX vs the actions the firmware sent: max 2.5e-7",
     "tools/policy_rollout_plant.py: la stessa policy sulla stessa pianta senza ArduPilot — separa problemi di pianta da problemi di firmware": "tools/policy_rollout_plant.py: the same policy on the same plant without ArduPilot — separates plant issues from firmware issues",
-    "Le due reti (MDK_POLICY)": "The two networks (MDK_POLICY)",
+    "La rete (MDK_POLICY)": "The network (MDK_POLICY)",
     "0 = MLP 61→512→256→128→14 ELU, 197 896 parametri, 0.37 ms": "0 = MLP 61→512→256→128→14 ELU, 197 896 parameters, 0.37 ms",
-    "1 = Cartan+DiLU 61→192→3×CartanLinear→14, 127 054 parametri (−36 %), 0.25 ms, operatore con exp/log in C": "1 = Cartan+DiLU 61→192→3×CartanLinear→14, 127 054 parameters (−36 %), 0.25 ms, exp/log operator in C",
     "9. Cosa cambia passando all'hardware": "9. What changes on hardware",
     "Solo il terzo processo: la pianta MuJoCo diventa il robot. AP_MicroDuck non cambia.": "Only the third process: the MuJoCo plant becomes the robot. AP_MicroDuck does not change.",
     "Blocco": "Block", "In SITL (oggi)": "In SITL (today)", "Su robot": "On the robot",
@@ -167,7 +166,7 @@ TR = {
     "Feedback giunti": "Joint feedback", "driver bus Dynamixel (present position/velocity) → set_joint_feedback()": "Dynamixel bus driver (present position/velocity) → set_joint_feedback()",
     "Uscite servo": "Servo outputs", "SRV_Channels → pacchetto JSON PWM → MuJoCo BAM": "SRV_Channels → JSON PWM packet → MuJoCo BAM", "SRV_Channels → protocollo Robotis (tick) sugli XL330": "SRV_Channels → Robotis protocol (ticks) on the XL330",
     "Comandi": "Commands", "RC reale + GCS, identici": "real RC + GCS, identical",
-    "policy_*.h in C, 0.3 ms su Mac": "policy_*.h in C, 0.3 ms on the Mac", "stessa sorgente; STM32H7: 1–2 ms stimati (MLP), Cartan da misurare": "same source; STM32H7: 1–2 ms estimated (MLP), Cartan to be measured",
+    "policy_mlp.h in C, 0.37 ms su Mac": "policy_mlp.h in C, 0.37 ms on the Mac", "stessa sorgente; STM32H7: 1–2 ms stimati (MLP)": "same source; STM32H7: 1–2 ms estimated (MLP)",
     "Filtri IMU": "IMU filters", "stessa regola: nessun LPF lento sul gyro che alimenta la policy": "same rule: no slow LPF on the gyro that feeds the policy",
     "Il vincolo vero è il budget del microcontrollore: ~2×10⁵ MAC per passo (MLP) a 50 Hz più EKF, bus e logging. Il prossimo passo è lo stesso update() compilato su una Nucleo H7 con 1000 forward e misura p50/p99.":
         "The real constraint is the microcontroller budget: ~2×10⁵ MAC per step (MLP) at 50 Hz on top of EKF, buses and logging. Next step: the same update() compiled on a Nucleo H7, 1000 forward passes, p50/p99 measured.",
@@ -354,7 +353,7 @@ def build(lang: str, out: Path) -> None:
     hist = box(s, Inches(0.7), ys[3], bw, bh, ["Storia", "azione precedente (14)"], size=11)
     cf = box(s, Inches(3.1), ys[0], Inches(2.0), bh, ["Filtro gravità", "IMU-only, no EKF"], size=11)
     obs = box(s, Inches(5.35), Inches(2.9), Inches(1.9), Inches(1.5), ["build_obs", "61 float32", "frame trunk FLU"], fill=BLUE_FILL, size=11)
-    net = box(s, Inches(7.45), Inches(2.9), Inches(2.15), Inches(1.5), ["Forward C", "mean/std + rete", "MLP | Cartan", "≈0.3 ms"], fill=BLUE_FILL, size=11)
+    net = box(s, Inches(7.45), Inches(2.9), Inches(2.15), Inches(1.5), ["Forward C", "mean/std + rete", "MLP", "≈0.37 ms"], fill=BLUE_FILL, size=11)
     for b in (jfb, rc, hist):
         arrow(s, b.left + b.width, b.top + b.height // 2, obs.left, obs.top + obs.height // 2)
     arrow(s, ins.left + ins.width, ins.top + ins.height // 2, cf.left, cf.top + cf.height // 2)
@@ -400,7 +399,7 @@ def build(lang: str, out: Path) -> None:
         ("rc 1 1800", "RC_CHANNELS_OVERRIDE chan1=1800", "norm = +0.6", "obs[49] vy = 0.6 × 0.3 = 0.18 m/s"),
         ("rc 4 2000", "RC_CHANNELS_OVERRIDE chan4=2000", "norm = +1.0", "obs[50] ωz = 1.0 rad/s"),
         ("mode hold", "COMMAND_LONG  MAV_CMD_DO_SET_MODE custom_mode=4", "Rover in HOLD", "MDK_HOLD_MODE → twist forzato a 0: sta fermo"),
-        ("param set MDK_POLICY 1", "PARAM_SET", "AP_Param", "prossimo tick usa la rete Cartan"),
+        ("param set MDK_POLICY 0", "PARAM_SET", "AP_Param", "prossimo tick usa la rete MLP"),
         ("disarm", "COMMAND_LONG  ARM_DISARM p1=0", "soft disarmed", "azione 0, storia azzerata, PWM 0 (pianta: idle)"),
     ]
     tbl = s.shapes.add_table(len(rows), 4, Inches(0.5), Inches(1.7), Inches(12.3), Inches(0.42) * len(rows)).table
@@ -444,7 +443,7 @@ def build(lang: str, out: Path) -> None:
     title(s, "6. L'integrazione in ArduRover, file per file", "Fork virtualrobotix/ardupilot, branch microduck-ppo, sopra master upstream del 24/09/2026. 7 file toccati + 1 libreria nuova.")
     rows = [
         ("File", "Modifica", "Perché"),
-        ("libraries/AP_MicroDuck/  (nuova)", "AP_MicroDuck.{h,cpp}, microduck_infer.{h,c}, policy_mlp.h, policy_cartan.h, AP_MicroDuck_config.h", "il task: obs, filtro gravità, storia, stick, servo, MDK_*, log, telemetria; rete in C"),
+        ("libraries/AP_MicroDuck/  (nuova)", "AP_MicroDuck.{h,cpp}, microduck_infer.{h,c}, policy_mlp.h, AP_MicroDuck_config.h", "il task: obs, filtro gravità, storia, stick, servo, MDK_*, log, telemetria; rete in C"),
         ("Rover/Parameters.h / .cpp", "membro g2.microduck; AP_SUBGROUPINFO \"MDK_\" indice 63", "parametri MDK_* visibili da GCS e salvati in EEPROM"),
         ("Rover/Rover.cpp", "SCHED_TASK_CLASS update_attitude 400 Hz (→ loop rate), update 50 Hz", "il task entra nello scheduler come qualunque libreria"),
         ("Rover/wscript", "+ 'AP_MicroDuck'", "link della libreria nel binario ardurover"),
@@ -466,7 +465,7 @@ def build(lang: str, out: Path) -> None:
             cell.fill.solid()
             cell.fill.fore_color.rgb = NAVY if ri == 0 else (LIGHT if ri % 2 == 0 else RGBColor(0xFF, 0xFF, 0xFF))
     text(s, Inches(0.5), Inches(5.75), Inches(12.3), Inches(1.2),
-         [("Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB + ~500 KB di flash in float32).", {"size": 13}),
+         [("Nessuna modifica a RC_Channels, SRV_Channel, AP_InertialSensor, AP_Arming, GCS_MAVLink: il task usa le loro API pubbliche. AP_MICRODUCK_ENABLED è 1 su SITL; le board devono abilitarlo (pesi ~770 KB di flash in float32).", {"size": 13}),
           ("Parametri SITL (sitl/microduck.parm): SERVO1..14_FUNCTION 94..107, SERVOn_MIN/MAX 800/2200, SIM_RATE_HZ 200, SCHED_LOOP_RATE 200, INS_GYRO_FILTER 0, ARMING_CHECK 0, MDK_ENABLE 1.", {"size": 13, "space": 6})])
 
     # ------------------------------------------------------------------ 8 timing
@@ -496,27 +495,26 @@ def build(lang: str, out: Path) -> None:
     text(s, Inches(3.4), y0 + Inches(3.85), Inches(9.2), Inches(0.4), "200 ms", size=11, color=GREY, align=PP_ALIGN.CENTER)
     bullets(s, Inches(0.5), Inches(6.0), Inches(12.3), Inches(1.0), [
         "SITL manda i PWM → MuJoCo fa 1 passo (5 ms) → risponde col JSON → il SITL avanza il suo clock di 5 ms. Nessuno dei due può correre avanti.",
-        "Il task a 50 Hz vede 4 passi fisici per azione, come in training (decimation 4). Il forward dura 0.25–0.37 ms sul Mac; su STM32H7 stimati 1–2 ms.",
+        "Il task a 50 Hz vede 4 passi fisici per azione, come in training (decimation 4). Il forward dura ~0.37 ms sul Mac; su STM32H7 stimati 1–2 ms.",
     ], size=12)
 
     # ------------------------------------------------------------------ 9 network path
     s = prs.slides.add_slide(BLANK)
     title(s, "8. Da .pt a C: come la rete addestrata entra nel firmware", "Il normalizzatore delle osservazioni è parte della rete, non del simulatore.")
     n1 = box(s, Inches(0.5), Inches(2.1), Inches(2.3), Inches(1.6), ["model_1999.pt", "PyTorch: actor, critic,", "optimizer, normalizer", "(mjlab + rsl_rl, 2048×2000)"], fill=LIGHT, size=11)
-    n2 = box(s, Inches(3.2), Inches(2.1), Inches(2.3), Inches(1.6), [".onnx", "actor(normalizer(obs))", "Sub(mean) → Div(std) →", "Gemm/ELU… o Cartan"], fill=LIGHT, size=11)
-    n3 = box(s, Inches(5.9), Inches(2.1), Inches(2.5), Inches(1.6), ["policy_*.h", "static const float", "mean[61], std[61], pesi, q0", "773 KB MLP / 496 KB Cartan"], fill=BLUE_FILL, size=11)
-    n4 = box(s, Inches(8.8), Inches(2.1), Inches(2.3), Inches(1.6), ["microduck_infer.c", "forward float32", "expf/logf, no heap", "identico SITL / MCU"], fill=BLUE_FILL, size=11)
+    n2 = box(s, Inches(3.2), Inches(2.1), Inches(2.3), Inches(1.6), [".onnx", "actor(normalizer(obs))", "Sub(mean) → Div(std) →", "Gemm/ELU"], fill=LIGHT, size=11)
+    n3 = box(s, Inches(5.9), Inches(2.1), Inches(2.5), Inches(1.6), ["policy_mlp.h", "static const float", "mean[61], std[61], pesi, q0", "773 KB MLP"], fill=BLUE_FILL, size=11)
+    n4 = box(s, Inches(8.8), Inches(2.1), Inches(2.3), Inches(1.6), ["microduck_infer.c", "forward float32", "expf, no heap", "identico SITL / MCU"], fill=BLUE_FILL, size=11)
     n5 = box(s, Inches(11.4), Inches(2.1), Inches(1.4), Inches(1.6), ["AP_MicroDuck", "update()", "50 Hz"], fill=BLUE_FILL, size=11)
-    for a, b, lab in ((n1, n2, "scripts/export.py"), (n2, n3, "tools/export_*_c.py"), (n3, n4, "#include"), (n4, n5, "")):
+    for a, b, lab in ((n1, n2, "scripts/export.py"), (n2, n3, "tools/export_policy_c.py"), (n3, n4, "#include"), (n4, n5, "")):
         arrow(s, a.left + a.width, a.top + a.height // 2, b.left, b.top + b.height // 2, width=2, label=lab or None, label_dy=-0.35, label_size=9)
     bullets(s, Inches(0.5), Inches(4.1), Inches(12.3), Inches(2.8), [
         ("Verifica in tre punti", [
-            "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP), 6.0e-5 (Cartan)",
+            "tools/parity_check.py: 2201 osservazioni → ONNX Runtime vs binario C: max 3.8e-6 (MLP)",
             "tools/log_parity.py: le osservazioni loggate dal firmware in volo → ONNX vs le azioni che il firmware ha inviato: max 2.5e-7",
             "tools/policy_rollout_plant.py: la stessa policy sulla stessa pianta senza ArduPilot — separa problemi di pianta da problemi di firmware"]),
-        ("Le due reti (MDK_POLICY)", [
-            "0 = MLP 61→512→256→128→14 ELU, 197 896 parametri, 0.37 ms",
-            "1 = Cartan+DiLU 61→192→3×CartanLinear→14, 127 054 parametri (−36 %), 0.25 ms, operatore con exp/log in C"]),
+        ("La rete (MDK_POLICY)", [
+            "0 = MLP 61→512→256→128→14 ELU, 197 896 parametri, 0.37 ms"]),
     ], size=12)
 
     # ------------------------------------------------------------------ 10 hardware
@@ -528,7 +526,7 @@ def build(lang: str, out: Path) -> None:
         ("Feedback giunti", "JSON joints → sitl->state", "driver bus Dynamixel (present position/velocity) → set_joint_feedback()"),
         ("Uscite servo", "SRV_Channels → pacchetto JSON PWM → MuJoCo BAM", "SRV_Channels → protocollo Robotis (tick) sugli XL330"),
         ("Comandi", "MAVProxy rc / mode / arm", "RC reale + GCS, identici"),
-        ("Rete", "policy_*.h in C, 0.3 ms su Mac", "stessa sorgente; STM32H7: 1–2 ms stimati (MLP), Cartan da misurare"),
+        ("Rete", "policy_mlp.h in C, 0.37 ms su Mac", "stessa sorgente; STM32H7: 1–2 ms stimati (MLP)"),
         ("Filtri IMU", "INS_GYRO_FILTER 0", "stessa regola: nessun LPF lento sul gyro che alimenta la policy"),
     ]
     tbl = s.shapes.add_table(len(rows), 3, Inches(0.5), Inches(1.7), Inches(12.3), Inches(0.5) * len(rows)).table
@@ -553,7 +551,7 @@ def build(lang: str, out: Path) -> None:
     title(s, "10. La demo e i risultati", "scripts/demo_mavproxy.py: un comando avvia pianta, SITL e MAVProxy e digita la sequenza dell'operatore.")
     bullets(s, Inches(0.5), Inches(1.6), Inches(6.2), Inches(5.3), [
         ("Sequenza digitata in MAVProxy", [
-            "param set MDK_POLICY 0|1 · param set MDK_ENABLE 1",
+            "param set MDK_POLICY 0 · param set MDK_ENABLE 1",
             "mode manual · rc all 1500 · arm throttle → 6 s in piedi",
             "rc 2 2000 → avanti 3 s · rc 2 1000 → indietro 2 s",
             "rc 1 1800 → laterale 2 s · rc 4 2000 → rotazione 90° (integrale di ATTITUDE.yawspeed) · rc 2 2000 → avanti 5 s",
@@ -564,16 +562,16 @@ def build(lang: str, out: Path) -> None:
             "barra in basso: tempo, posizione, tilt del robot in MuJoCo"]),
     ], size=12)
     rows = [
-        ("", "MLP", "Cartan"),
-        ("Parità C vs ONNX", "3.8e-6", "6.0e-5"),
-        ("Parità in-situ (log firmware)", "2.5e-7", "1.3e-6 (p99)"),
-        ("Forward nel SITL", "0.37 ms", "0.25 ms"),
-        ("Flash pesi (float32)", "773 KB", "496 KB"),
-        ("Batteria HIL 8 passi", "8/8 PASS", "8/8 PASS"),
-        ("Avanti 0.3/0.4 m/s 15 s", "nessuna caduta", "—"),
+        ("", "MLP"),
+        ("Parità C vs ONNX", "3.8e-6"),
+        ("Parità in-situ (log firmware)", "2.5e-7"),
+        ("Forward nel SITL", "0.37 ms"),
+        ("Flash pesi (float32)", "773 KB"),
+        ("Batteria HIL 8 passi", "8/8 PASS"),
+        ("Avanti 0.3/0.4 m/s 15 s", "nessuna caduta"),
     ]
-    tbl = s.shapes.add_table(len(rows), 3, Inches(7.0), Inches(1.7), Inches(5.8), Inches(0.45) * len(rows)).table
-    for i, w in enumerate([Inches(2.8), Inches(1.5), Inches(1.5)]):
+    tbl = s.shapes.add_table(len(rows), 2, Inches(7.0), Inches(1.7), Inches(5.8), Inches(0.45) * len(rows)).table
+    for i, w in enumerate([Inches(3.5), Inches(2.3)]):
         tbl.columns[i].width = w
     for ri, row in enumerate(rows):
         for ci, val in enumerate(row):

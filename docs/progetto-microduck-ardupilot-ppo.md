@@ -6,9 +6,9 @@
 **Stato:** implementato e validato in SITL (§11); repo privato `virtualrobotix/microduck-ap-ppo-sitl`  
 **Disclaimer:** *Developed by Roberto Navoni : r.navoni74@gmail.com*
 
-Portare la policy PPO del MicroDuck (MLP e Cartan, 61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
+Portare la policy PPO MLP del MicroDuck (61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
 
-Documenti collegati: [`18-microduck-ppo-cartan.md`](18-microduck-ppo-cartan.md) (training), [`24-cartan-dal-microduck-all-h2.md`](24-cartan-dal-microduck-all-h2.md) (reti validate).
+Documenti collegati: training e reti validate nel laboratorio NOESIS EXPERIMENT.
 
 ---
 
@@ -20,7 +20,7 @@ Documenti collegati: [`18-microduck-ppo-cartan.md`](18-microduck-ppo-cartan.md) 
 | **Inerziali solo da ArduPilot** (`AP_InertialSensor`) | Il task non deve sapere che esiste MuJoCo. Sostituire il simulatore con IMU + XL330 reali non cambia una riga |
 | **Contratto rete immutato** | 61 float32 SI in ingresso, 14 float32 rad in uscita, 50 Hz, `q_target = q0 + a`. Nessun riaddestramento |
 | **Inferenza in C puro** (float32) | Nessun ONNX Runtime nel firmware: lo stesso codice compila su SITL e su STM32. ONNX serve solo ai test di parità in Python |
-| **Reti validate** | MLP `mlp_2048x2000` e Cartan `cartan_ac_2048x2000` (iter 1999), export ONNX 18–19 set 2026 |
+| **Rete validata** | MLP `mlp_2048x2000` (iter 1999), export ONNX 18–19 set 2026 |
 | **Configurazione MuJoCo attuale** | `scene_walk.xml` / `scene.xml`, `timestep 0.005`, decimazione 4 → 50 Hz, attuatori BAM XL330, `DEFAULT_POSE` STAND2 |
 
 ---
@@ -36,7 +36,7 @@ flowchart LR
     RC[RC / MAVLink stick]
     HIST[History 50 Hz a_prev]
     OBS[AP_MicroDuck build_obs 61]
-    NET[Forward C: mean/std + MLP o Cartan]
+    NET[Forward C: mean/std + MLP]
     SRV[SRV_Channels 14 servo]
     INS --> CF --> OBS
     INS --> OBS
@@ -153,20 +153,19 @@ Fork `virtualrobotix/ardupilot`, branch `microduck-ppo`, su `master` upstream ag
 | Componente | Cosa cambia |
 |---|---|
 | `libraries/AP_MicroDuck/` | Nuova libreria: `build_obs`, filtro assetto, storia, forward C, parametri `MDK_*`, logging |
-| `libraries/AP_MicroDuck/policy_mlp.h` / `policy_cartan.h` | Pesi + `mean/std` come array `const float` generati da NOESIS |
+| `libraries/AP_MicroDuck/policy_mlp.h` | Pesi + `mean/std` come array `const float` generati da NOESIS |
 | `Rover/` | Task `AP_MicroDuck::update` a 50 Hz nella tabella scheduler; in `MANUAL`/`HOLD` l’uscita servo 1–14 è del task |
 | `libraries/SRV_Channel` | Funzioni `k_microduck_joint1..14`; PWM 1000–2000 ↔ rad con `pwm = 1500 + 500·q/(π/2)` (1 µs ≈ 3 mrad) |
 | `libraries/SITL/SIM_JSON.cpp` | Parsing del campo opzionale `"joints": {"pos":[14], "vel":[14]}` → `AP_JointFeedback` |
 | `libraries/AP_JointFeedback/` | Singleton con timestamp; backend SITL (JSON) e, in futuro, Robotis |
 
-Parametri: `MDK_ENABLE`, `MDK_POLICY` (0 MLP, 1 Cartan), `MDK_VX_MAX`, `MDK_VY_MAX`, `MDK_WZ_MAX`, `MDK_WD_MS` (40), `MDK_ATT_SRC`, `MDK_ATT_TAU`, `MDK_RC_VX/VY/WZ`, `MDK_ACT_MAX`, `MDK_LOG`, `MDK_HOLD_MODE`, `MDK_SRV_FN0`. Nel file SITL vanno anche `INS_GYRO_FILTER 0` e `INS_ACCEL_FILTER 20` (vedi §11).
+Parametri: `MDK_ENABLE`, `MDK_POLICY` (0 MLP), `MDK_VX_MAX`, `MDK_VY_MAX`, `MDK_WZ_MAX`, `MDK_WD_MS` (40), `MDK_ATT_SRC`, `MDK_ATT_TAU`, `MDK_RC_VX/VY/WZ`, `MDK_ACT_MAX`, `MDK_LOG`, `MDK_HOLD_MODE`, `MDK_SRV_FN0`. Nel file SITL vanno anche `INS_GYRO_FILTER 0` e `INS_ACCEL_FILTER 20` (vedi §11).
 
 Telemetria: `NAMED_VALUE_FLOAT` `PPO_MS` (tempo forward), `PPO_UP` (gz proiettata), `PPO_VX` (comando); messaggio DataFlash `PPO` con obs compressi e 14 azioni per il replay offline.
 
 ### 5.1 Inferenza in C
 
 - **MLP**: normalizer → `Linear(61,512)+ELU → Linear(512,256)+ELU → Linear(256,128)+ELU → Linear(128,14)`. ~198k parametri (~790 KB float32).
-- **Cartan**: normalizer → paint 192, 3 strati Cartan+DiLU → testa 14. ~127k parametri (~510 KB). Richiede il port in C dell’operatore Cartan (`solvable_geometry`): va fatto **dopo** aver validato la pipeline con l’MLP.
 
 Test di parità in Python: stesso `obs` → ONNX Runtime vs eseguibile C, errore massimo < 1e-4.
 
@@ -194,7 +193,7 @@ Il lock-step del protocollo JSON garantisce che SITL e MuJoCo avanzino insieme: 
 3. **Pianta MuJoCo**: script JSON con la scena attuale; test standalone con il SITL non modificato (IMU e posizione visibili in MAVProxy).
 4. **Export pesi** MLP da `.pt` → header C + `mean/std`; parità ONNX vs C.
 5. **`AP_MicroDuck`** + `AP_JointFeedback` + estensione `SIM_JSON`; task scheduler; parametri; logging.
-6. **Validazione MAVProxy** (paragrafo 8) con MLP, poi con Cartan.
+6. **Validazione MAVProxy** (paragrafo 8) con MLP.
 7. Stima budget MCU (paragrafo 9).
 
 ---
@@ -214,7 +213,6 @@ Lancio: `sim_vehicle.py -v Rover -f JSON --console --map` con il plant MuJoCo at
 | HOLD | `mode HOLD` | Twist forzato a 0, il duck si ferma in piedi |
 | Failsafe | `rc 3 900` / stop plant | Entro 40 ms `a = 0`, stand; ripresa pulita |
 | Disarm | `disarm` | Uscite a riposo, `a_prev = 0` |
-| Cartan | `param set MDK_POLICY 1` | Stessa batteria; confronto reward-proxy (upright, tracking) MLP vs Cartan |
 
 Ogni run salva il `.bin` DataFlash; uno script legge il messaggio `PPO` e ricostruisce obs/azioni per confrontarli con un rollout Python dello stesso ONNX.
 
@@ -227,9 +225,8 @@ Il SITL dimostra correttezza, non il budget del MCU. Stime per un forward a 50 H
 | Rete | MAC/forward | Flash pesi float32 | Stima STM32H7 (480 MHz, FPU) |
 |---|---:|---:|---|
 | MLP 512-256-128 | ~2×10⁵ | ~790 KB | ~1–2 ms |
-| Cartan paint 192 × 3 | ~1.3×10⁵ + op Cartan | ~510 KB | da misurare (operatore non lineare per strato) |
 
-Su H743 (2 MB flash) entrambe stanno in flash in float32; INT8 (~190 / ~125 KB) apre la strada a F7. Il task va **sotto** il loop IMU veloce, non bloccante, con skip-frame → stand. La prova reale è lo stesso `update()` compilato su Nucleo H7 con 1000 forward e misura p50/p99: solo dopo si sceglie la board.
+Su H743 (2 MB flash) la MLP sta in flash in float32; INT8 (~190 KB) apre la strada a F7. Il task va **sotto** il loop IMU veloce, non bloccante, con skip-frame → stand. La prova reale è lo stesso `update()` compilato su Nucleo H7 con 1000 forward e misura p50/p99: solo dopo si sceglie la board.
 
 ---
 
@@ -239,7 +236,6 @@ Su H743 (2 MB flash) entrambe stanno in flash in float32; INT8 (~190 / ~125 KB) 
 - **Filtro assetto diverso dal training**: se la gravity proiettata è più lenta/rumorosa di quella vista in training, il duck oscilla. Confrontare `MDK_ATT_SRC` 0/1 nel log.
 - **Quantizzazione PWM** (3 mrad/µs): accettabile per XL330 (risoluzione 1.5 mrad); su hardware si passa ai tick Robotis.
 - **Feedback giunti dai target** invece che dallo stato: la rete vede un robot “ideale” e diverge dalla realtà. Vietato come fallback silenzioso.
-- **Cartan in C**: operatore custom; MLP prima.
 
 ---
 
@@ -253,18 +249,18 @@ Repo: `virtualrobotix/microduck-ap-ppo-sitl` (privato) con il fork `virtualrobot
 | `SIM_JSON` con `joints{jpos,jvel}` → `sitl->state` → joint feedback | fatto |
 | Rover: `g2.microduck`, task 400 Hz (filtro) + 50 Hz (policy), servo Scripting1..14 | fatto |
 | Pianta MuJoCo (`plant/mujoco_json_plant.py`): scena e attuatori BAM del training, FRD/NED, lock-step 200 Hz | fatta |
-| Export pesi → C: MLP (`policy_mlp.h`, 773 KB) e Cartan+DiLU (`policy_cartan.h`, 496 KB) | fatti |
-| Batteria HIL (`scripts/hil_test.py`): arm, stand, avanti, laterale, rotazione, HOLD, disarm + parità in-situ | 8/8 PASS con MLP e con Cartan |
+| Export pesi → C: MLP (`policy_mlp.h`, 773 KB) | fatto |
+| Batteria HIL (`scripts/hil_test.py`): arm, stand, avanti, laterale, rotazione, HOLD, disarm + parità in-situ | 8/8 PASS con MLP |
 
 Numeri misurati sul Mac (SITL, `-O2`):
 
-| | MLP | Cartan |
-|---|---|---|
-| Parità C vs ONNX (offline) | max 3.8e-6 | max 6.0e-5 |
-| Parità in-situ (obs del firmware → ONNX vs azioni del firmware) | max 2.5e-7 | p99 1.3e-6 |
-| Forward | ~0.37 ms | ~0.25 ms |
-| Stand 15 s / avanti 0.2 m/s / laterale / rotazione | nessuna caduta | nessuna caduta |
-| Avanti 0.3 e 0.4 m/s (15 s ciascuno) | nessuna caduta, ~0.15 m/s effettivi | — |
+| | MLP |
+|---|---|
+| Parità C vs ONNX (offline) | max 3.8e-6 |
+| Parità in-situ (obs del firmware → ONNX vs azioni del firmware) | max 2.5e-7 |
+| Forward | ~0.37 ms |
+| Stand 15 s / avanti 0.2 m/s / laterale / rotazione | nessuna caduta |
+| Avanti 0.3 e 0.4 m/s (15 s ciascuno) | nessuna caduta, ~0.15 m/s effettivi |
 
 **Lezione principale.** Il primo HIL cadeva dopo ~1 s pur con obs e rete corrette (parità perfetta). Causa: ArduRover ha `INS_GYRO_FILTER` **4 Hz** di default (veicolo a ruote), quindi il gyro entrava nella rete con decine di ms di ritardo e ampiezza dimezzata. Con `INS_GYRO_FILTER 0` (o 40 Hz) il duck sta in piedi e cammina. È esattamente il rischio “filtro diverso dal training” del §10, ma nell'IMU e non nell'assetto. Su hardware vale la stessa regola: nessun filtro lento sul gyro che alimenta la policy.
 
