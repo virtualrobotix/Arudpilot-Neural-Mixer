@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/bimo.jpg" alt="Bimo" width="360">
+
+*Bimo, robot montato. Foto: [github.com/mekion/the-bimo-project](https://github.com/mekion/the-bimo-project).*
+
 | | |
 |---|---|
 | Id (cartella) | `bimo` |

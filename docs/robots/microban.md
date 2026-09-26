@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/microban.jpg" alt="Microban" width="360">
+
+*Microban, robot montato. Foto: [github.com/Rhoban/microban](https://github.com/Rhoban/microban).*
+
 | | |
 |---|---|
 | Id (cartella) | `microban` |

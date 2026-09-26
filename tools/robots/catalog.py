@@ -421,6 +421,21 @@ ROBOTS["openduck"] = {
     ],
 }
 
+# docs/robots/img/<id>.jpg, resized copies of the photo each upstream README shows; credit and source
+# are printed under the image on the robot page.
+PHOTOS = {
+    "microduck": ("robot reale (metà destra del confronto sim/reale)", "https://github.com/pollen-robotics/microduck_rl"),
+    "microban": ("robot montato", "https://github.com/Rhoban/microban"),
+    "zeroth": ("Zeroth-01", "https://github.com/zeroth-robotics/zeroth-bot"),
+    "bimo": ("robot montato", "https://github.com/mekion/the-bimo-project"),
+    "legolas": ("robot montato, vista frontale", "https://github.com/daviddoo02/Legolas-an-open-source-biped"),
+    "upkie": ("robot montato", "https://github.com/upkie/upkie"),
+    "rex": ("SpotMicro montato", "https://github.com/nicrusso7/rex-gym"),
+    "yertle": ("fotogramma del video di camminata del robot reale", "https://github.com/Jerome-Graves/yertle"),
+    "albert": ("render MuJoCo (il repo pubblica solo render)", "https://github.com/thinking0things/AlbertPro"),
+    "openduck": ("robot montato", "https://github.com/apirrone/Open_Duck_Mini"),
+}
+
 STATUS_TEXT = {
     "policy": "policy int8 disponibile; la stessa rete in float32 è validata in SITL e HIL",
     "policy-upstream": "policy upstream convertita in int8; simulazione e training pronti",

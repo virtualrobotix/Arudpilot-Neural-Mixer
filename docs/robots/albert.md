@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/albert.jpg" alt="AlbertPro" width="360">
+
+*AlbertPro, render MuJoCo (il repo pubblica solo render). Foto: [github.com/thinking0things/AlbertPro](https://github.com/thinking0things/AlbertPro).*
+
 | | |
 |---|---|
 | Id (cartella) | `albert` |

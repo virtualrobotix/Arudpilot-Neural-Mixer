@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from urllib.parse import quote
 
+from catalog import PHOTOS
+
 CLASS_IT = {"biped": "bipede", "quadruped": "quadrupede"}
 
 
@@ -51,6 +53,17 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         f"[Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · "
         f"[README](../../README.it.md)",
         "",
+    ]
+    photo = PHOTOS.get(rid)
+    if photo and (repo_root / "docs" / "robots" / "img" / f"{rid}.jpg").is_file():
+        caption, src = photo
+        lines += [
+            f'<img src="img/{rid}.jpg" alt="{r["display_name"]}" width="360">',
+            "",
+            f"*{r['display_name']}, {caption}. Foto: [{src.split('://', 1)[1]}]({src}).*",
+            "",
+        ]
+    lines += [
         "| | |",
         "|---|---|",
         f"| Id (cartella) | `{rid}` |",
@@ -203,14 +216,18 @@ def index_page(robots: dict, status_text: dict, link_text: dict, repo_root: Path
         "",
         "## Configurazioni disponibili",
         "",
-        "| `NNM_ROBOT` | Robot | Classe | Giunti | Osservazione | Hz | Collegamento | Policy | Stato |",
-        "|---:|---|---|---:|---:|---:|---|---|---|",
+        "| `NNM_ROBOT` | Foto | Robot | Classe | Giunti | Osservazione | Hz | Collegamento | Policy | Stato |",
+        "|---:|---|---|---|---:|---:|---:|---|---|---|",
     ]
     for rid, r in sorted(robots.items(), key=lambda kv: kv[1]["index"]):
         pol = ", ".join(f"`{p.name}`" for p in _policies_on_disk(repo_root, rid)) or "—"
+        img = (f'<a href="{rid}.md"><img src="img/{rid}.jpg" alt="{r["display_name"]}" width="110"></a>'
+               if (repo_root / "docs" / "robots" / "img" / f"{rid}.jpg").is_file() else "")
         lines.append(
-            f"| {r['index']} | [{r['display_name']}]({rid}.md) | {CLASS_IT[r['class']]} | {len(r['joint_names'])} | "
-            f"{_obs_dim(r)} | {r['rate_hz']} | {r['link']} | {pol} | {status_text[r['status']]} |")
+            f"| {r['index']} | {img} | [{r['display_name']}]({rid}.md) | {CLASS_IT[r['class']]} | "
+            f"{len(r['joint_names'])} | {_obs_dim(r)} | {r['rate_hz']} | {r['link']} | {pol} | "
+            f"{status_text[r['status']]} |")
+    lines += ["", "Le foto vengono dai repository originali; fonte sotto l'immagine in ogni scheda."]
     lines += [
         "",
         "Collegamento: " + "; ".join(f"`{k}` = {v}" for k, v in link_text.items()) + ".",

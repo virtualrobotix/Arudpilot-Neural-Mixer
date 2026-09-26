@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/rex.jpg" alt="Rex / SpotMicro" width="360">
+
+*Rex / SpotMicro, SpotMicro montato. Foto: [github.com/nicrusso7/rex-gym](https://github.com/nicrusso7/rex-gym).*
+
 | | |
 |---|---|
 | Id (cartella) | `rex` |

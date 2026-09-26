@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/legolas.jpg" alt="Legolas" width="360">
+
+*Legolas, robot montato, vista frontale. Foto: [github.com/daviddoo02/Legolas-an-open-source-biped](https://github.com/daviddoo02/Legolas-an-open-source-biped).*
+
 | | |
 |---|---|
 | Id (cartella) | `legolas` |

@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/yertle.jpg" alt="Yertle" width="360">
+
+*Yertle, fotogramma del video di camminata del robot reale. Foto: [github.com/Jerome-Graves/yertle](https://github.com/Jerome-Graves/yertle).*
+
 | | |
 |---|---|
 | Id (cartella) | `yertle` |

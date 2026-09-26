@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/upkie.jpg" alt="Upkie (wheeled biped)" width="360">
+
+*Upkie (wheeled biped), robot montato. Foto: [github.com/upkie/upkie](https://github.com/upkie/upkie).*
+
 | | |
 |---|---|
 | Id (cartella) | `upkie` |

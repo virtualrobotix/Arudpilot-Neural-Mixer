@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/microduck.jpg" alt="MicroDuck" width="360">
+
+*MicroDuck, robot reale (metà destra del confronto sim/reale). Foto: [github.com/pollen-robotics/microduck_rl](https://github.com/pollen-robotics/microduck_rl).*
+
 | | |
 |---|---|
 | Id (cartella) | `microduck` |

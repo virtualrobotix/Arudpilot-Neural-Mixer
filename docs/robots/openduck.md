@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/openduck.jpg" alt="Open Duck Mini v2" width="360">
+
+*Open Duck Mini v2, robot montato. Foto: [github.com/apirrone/Open_Duck_Mini](https://github.com/apirrone/Open_Duck_Mini).*
+
 | | |
 |---|---|
 | Id (cartella) | `openduck` |

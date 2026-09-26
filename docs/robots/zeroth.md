@@ -2,6 +2,10 @@
 
 [Catalogo robot](README.md) · [Training compatibile con ArduPilot](training.md) · [README](../../README.it.md)
 
+<img src="img/zeroth.jpg" alt="Zeroth-01" width="360">
+
+*Zeroth-01, Zeroth-01. Foto: [github.com/zeroth-robotics/zeroth-bot](https://github.com/zeroth-robotics/zeroth-bot).*
+
 | | |
 |---|---|
 | Id (cartella) | `zeroth` |
