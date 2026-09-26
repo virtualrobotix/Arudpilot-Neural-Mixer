@@ -90,6 +90,9 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         lines.append(f"- Scena MuJoCo upstream: [`{u['sim_model']}`]({_blob(model_repo, u['sim_model'], branch if model_repo == u['repo'] else 'main')})")
     if u.get("urdf"):
         lines.append(f"- URDF upstream: [`{u['urdf']}`]({_blob(u['repo'], u['urdf'], branch)})")
+    own = r["sim"].get("mjcf")
+    if own:
+        lines.append(f"- Modello MuJoCo (in questo repo): [`robots/{rid}/robot/{own}`](../../robots/{rid}/robot/{own})")
     lines += [
         f"- CAD e parti stampabili: {_link(u.get('cad', 'non trovato'))}",
         f"- BOM e montaggio: {_link(u.get('bom', 'non trovato'))}",
@@ -117,13 +120,24 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         f"File: [`robots/{rid}/robot/profile.json`](../../robots/{rid}/robot/profile.json) → "
         f"`robot.bin` sulla microSD. Ordine dei giunti = ordine di osservazione, azione e uscite servo.",
         "",
-        "| # | Giunto | q0 (rad) | Uscita servo |",
-        "|---:|---|---:|---|",
     ]
+    smap = r.get("servo_map", {})
+    if smap:
+        lines += ["| # | Giunto | q0 (rad) | Uscita servo | Canale PCA9685 upstream | Verso |",
+                  "|---:|---|---:|---|---:|---:|"]
+    else:
+        lines += ["| # | Giunto | q0 (rad) | Uscita servo |", "|---:|---|---:|---|"]
     for i, (name, q) in enumerate(zip(r["joint_names"], r["q0"])):
         fn = 94 + i
         out = f"`SERVO{i + 1}_FUNCTION {fn}`" if fn <= 109 else "oltre Scripting16: serve il backend bus"
-        lines.append(f"| {i} | `{name}` | {q:+.4f} | {out} |")
+        row = f"| {i} | `{name}` | {q:+.4f} | {out} |"
+        if smap:
+            ch, sign = smap[name]
+            row += f" {ch} | {sign:+d} |"
+        lines.append(row)
+    if smap:
+        lines += ["", "Canale e verso vengono dal codice upstream: angolo servo = 90° + verso × q (in gradi), "
+                      "più l'offset di calibrazione del singolo servo."]
     extra = r.get("extra_cmd_dim", 0)
     lines += [
         "",
@@ -131,6 +145,19 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         f"twist vx vy ωz 3" + (f", comandi testa/corpo {extra} (zero sull'autopilota)" if extra else "") + ".",
         f"Azione ({n}): offset in radianti, `q_target = q0 + azione`.",
         "",
+    ]
+    mech = r.get("mechanics")
+    if mech:
+        other = mech["compare_with"]
+        lines += [
+            f"## Modello meccanico e confronto con {other}",
+            "",
+            f"| Grandezza | {r['display_name']} | {other} | Fonte |",
+            "|---|---|---|---|",
+        ]
+        lines += [f"| {a} | {b} | {c} | {d} |" for a, b, c, d in mech["rows"]]
+        lines.append("")
+    lines += [
         "## Architettura PPO",
         "",
         f"File: [`robots/{rid}/robot/ppo.yaml`](../../robots/{rid}/robot/ppo.yaml). Stessa rete di MicroDuck, "

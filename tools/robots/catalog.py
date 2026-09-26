@@ -421,6 +421,109 @@ ROBOTS["openduck"] = {
     ],
 }
 
+# Kinematics, wiring and signs from Code/Server/Control.py, Servo.py and Tutorial.pdf (Step 13 wiring, Step 15
+# assembly pose) of the upstream repo. q0 is the stand of Control.stop(): foot at x=10, y=99, z=+/-10 mm from
+# each abduction axis, converted by coordinateToAngle() and the joint convention of robots/freenove/robot/freenove.xml.
+ROBOTS["freenove"] = {
+    "index": 10,
+    "class": "quadruped",
+    "display_name": "Freenove Robot Dog",
+    "maker": "Freenove (kit FNK0050)",
+    "status": "needs-training-handmade",
+    "joint_names": [
+        "FL_hip_roll", "FL_hip_pitch", "FL_knee",
+        "FR_hip_roll", "FR_hip_pitch", "FR_knee",
+        "RL_hip_roll", "RL_hip_pitch", "RL_knee",
+        "RR_hip_roll", "RR_hip_pitch", "RR_knee",
+    ],
+    "q0": [0.1007, 0.6635, -0.0161, -0.1007, 0.6635, -0.0161,
+           0.1007, 0.6635, -0.0161, -0.1007, 0.6635, -0.0161],
+    "extra_cmd_dim": 0,
+    "rate_hz": 50,
+    "command_ranges": {"vx": [-0.2, 0.2], "vy": [-0.1, 0.1], "wz": [-0.8, 0.8]},
+    "upstream": {
+        "repo": "https://github.com/Freenove/Freenove_Robot_Dog_Kit_for_Raspberry_Pi",
+        "branch": "master",
+        "license": "CC BY-NC-SA 3.0 (uso non commerciale)",
+        "sim_model_note": "nessun URDF, MJCF o CAD 3D upstream (solo Head_Part_2D.dwg): il modello "
+                          "robots/freenove/robot/freenove.xml è ricostruito dalla cinematica di "
+                          "Code/Server/Control.py, generato da tools/robots/freenove_mjcf.py e versionato in "
+                          "questo repo. Per cambiare masse, servo o misure si modifica lo script e si rigenera: "
+                          "`.venv/bin/python tools/robots/freenove_mjcf.py --gait`",
+        "cad": "non pubblicato (parti in acrilico tagliate al laser; solo Head_Part_2D.dwg nel repo)",
+        "bom": "Tutorial.pdf nel repo upstream (elenco parti, montaggio, cablaggio Step 13); servono 2× 18650 "
+               "non protette e un Raspberry Pi 5 / 4B / 3B+",
+        "training": "nessuno upstream (passo open-loop in Control.py: traiettorie ellittiche dei piedi + IK, "
+                    "bilanciamento PID sull'IMU)",
+        "published_policy": "nessuna",
+    },
+    "sim": {"actuator": "position", "mjcf": "freenove.xml", "trunk_body": "trunk",
+            "freejoint": "floating_base", "gyro_sensor": "imu_gyro", "accel_sensor": "imu_acc",
+            "home_z": 0.1014},
+    "servos": "12× EMAX ES08MA II (12 g, analogici, 1,6 kgf·cm a 4,8 V) su PCA9685 0x40 a 50 Hz; "
+              "Raspberry Pi, IMU MPU6050",
+    "link": "pwm",
+    "policies": {},
+    # grandezza, Freenove, AlbertPro, fonte Freenove
+    "mechanics": {
+        "compare_with": "AlbertPro",
+        "rows": [
+            ("Gradi di libertà per zampa", "3: abduzione, anca, ginocchio", "2: anca, ginocchio",
+             "`Control.coordinateToAngle()`"),
+            ("Giunti comandati", "12", "8", "Step 13 del tutorial (12 servo zampe + 1 testa)"),
+            ("Interasse anche (x × y)", "136 × 76 mm", "110 × 110 mm", "`Control.postureBalance()`: l, b"),
+            ("Asse abduzione → asse anca", "23 mm, verticale a riposo", "—", "`coordinateToAngle()`: l1"),
+            ("Coscia / tibia", "55 / 55 mm", "30 / 42 mm nel MJCF (5 / 5 cm dichiarati)",
+             "`coordinateToAngle()`: l2, l3"),
+            ("Configurazione della zampa", "coscia indietro, tibia in avanti (ginocchio verso dietro)",
+             "uguale", "`angleToCoordinate()` e foto dello stand"),
+            ("Piede in stand rispetto all'anca", "+10 mm avanti, 10 mm verso l'esterno, 99 mm sotto",
+             "−3 mm, 8 mm, 56 mm sotto", "`Control.stop()`"),
+            ("Massa", "circa 0,55 kg (stima per componenti)", "1,38 kg nel MJCF (densità di default sulle mesh)",
+             "non pubblicata; 970 g è il peso della confezione"),
+            ("Servo", "12× EMAX ES08MA II, 0,16–0,20 N·m, 0,12 s/60°", "8 servo PWM non specificati",
+             "elenco parti del tutorial; datasheet EMAX"),
+            ("Corsa servo", "18°–162° (±72° attorno a 90°)", "limiti nel MJCF", "`Servo.angleMin/angleMax`"),
+            ("Driver PWM", "PCA9685 0x40, 50 Hz, 500–2500 µs su 0–180°", "PCA9685 su ESP32", "`Servo.py`, `PCA9685.py`"),
+            ("Attuatore nel MJCF", "posizione kp 2 N·m/rad, kv 0,02, coppia ±0,17 N·m",
+             "posizione kp 60 senza limite di coppia", "datasheet ES08MA II"),
+            ("IMU", "MPU6050 0x68 sulla shield", "nessuna nell'osservazione upstream", "`IMU.py`"),
+        ],
+    },
+    # joint -> PCA9685 channel, servo_deg = 90 + sign * degrees(q) (+ calibration of point.txt)
+    "servo_map": {
+        "FL_hip_roll": (4, -1), "FL_hip_pitch": (3, 1), "FL_knee": (2, -1),
+        "FR_hip_roll": (11, -1), "FR_hip_pitch": (12, -1), "FR_knee": (13, 1),
+        "RL_hip_roll": (7, -1), "RL_hip_pitch": (6, 1), "RL_knee": (5, -1),
+        "RR_hip_roll": (8, -1), "RR_hip_pitch": (9, -1), "RR_knee": (10, 1),
+    },
+    "notes": [
+        "Rispetto ad AlbertPro, usato come base per la locomozione, il modello meccanico è diverso: 3 giunti "
+        "per zampa invece di 2 (in più l'abduzione), segmenti di 55 mm invece di 30/42, anche su un "
+        "rettangolo di 136 × 76 mm invece di 110 × 110. Restano uguali la configurazione della zampa "
+        "(ginocchio verso dietro), il driver PCA9685 e l'attuatore di posizione; il resto è stato corretto. "
+        "La tabella sopra elenca ogni voce.",
+        "Lo zero dei giunti è la posa di montaggio del tutorial (tutti i servo a 90°): coscia verticale, tibia "
+        "orizzontale in avanti. Così un giunto a 0 corrisponde a 1500 µs sia sul filo NNMixer sia sul servo.",
+        "Scala da applicare in robot.bin: il filo NNMixer vale 3 mrad/µs, il servo Freenove 2000 µs su π rad "
+        "(1,571 mrad/µs), quindi µs_servo = 1500 + segno × 1,910 × (µs_filo − 1500), più l'offset di "
+        "calibrazione del singolo servo.",
+        "Modello MuJoCo: geometrie visive (gruppo 2) sulle foto del tutorial, geometrie di collisione "
+        "(gruppo 3) che portano le masse, keyframe `home` nello stand, camere `track`, `side`, `front`, "
+        "sensori IMU e di contatto ai piedi. Verifica: il passo open-loop di Control.py, eseguito sul modello "
+        "con la sua IK, avanza di 17 cm in 3,5 s e ruota di 50° in 3,5 s senza cadere "
+        "([video](../media/freenove_model_gait.mp4)).",
+        "Masse e rigidezza dei servo sono stime: pesare il robot montato e aggiornare MASS in "
+        "tools/robots/freenove_mjcf.py. "
+        "In stand su 4 zampe il ginocchio lavora a circa 0,05 N·m; al trotto, con 2 zampe in appoggio, circa "
+        "0,11 N·m statici, due terzi dello stallo a 4,8 V: per questo vx è limitata a ±0,2 m/s.",
+        "Servo analogici aggiornati a 50 Hz dal PCA9685: la policy a 50 Hz è il massimo utile.",
+        "I 12 servo si collegano direttamente alle uscite dell'autopilota (12 ≤ 16) al posto del PCA9685; "
+        "manca ancora in robot.bin la calibrazione per giunto.",
+        "Licenza CC BY-NC-SA 3.0: modello e policy derivati non vanno usati per scopi commerciali.",
+    ],
+}
+
 # docs/robots/img/<id>.jpg, resized copies of the photo each upstream README shows; credit and source
 # are printed under the image on the robot page.
 PHOTOS = {
@@ -434,6 +537,8 @@ PHOTOS = {
     "yertle": ("fotogramma del video di camminata del robot reale", "https://github.com/Jerome-Graves/yertle"),
     "albert": ("render MuJoCo (il repo pubblica solo render)", "https://github.com/thinking0things/AlbertPro"),
     "openduck": ("robot montato", "https://github.com/apirrone/Open_Duck_Mini"),
+    "freenove": ("render del client Freenove (Tutorial.pdf, capitolo 4)",
+                 "https://github.com/Freenove/Freenove_Robot_Dog_Kit_for_Raspberry_Pi"),
 }
 
 STATUS_TEXT = {
@@ -441,6 +546,7 @@ STATUS_TEXT = {
     "policy-upstream": "policy upstream convertita in int8; simulazione e training pronti",
     "needs-training": "scena MuJoCo generata dall'URDF; policy da addestrare",
     "needs-training-mjcf": "scena MuJoCo nativa pronta; policy da addestrare",
+    "needs-training-handmade": "scena MuJoCo ricostruita dalla cinematica upstream; policy da addestrare",
     "needs-model": "manca una scena MuJoCo pronta per il training",
     "needs-firmware": "serve un tipo di azione per giunto nel firmware (ruote in velocità)",
 }

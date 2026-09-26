@@ -15,7 +15,7 @@ ROBOTS_DIR = REPO_ROOT / "robots"
 
 # Position = NNM_ROBOT value and NNM_RobotId in AP_NNMixer_Policy.h: append only, never reorder.
 ALL_ROBOTS = ("microduck", "microban", "zeroth", "bimo", "legolas", "upkie", "rex", "yertle", "albert",
-              "openduck")
+              "openduck", "freenove")
 ROBOT_INDEX = {name: i for i, name in enumerate(ALL_ROBOTS)}
 
 
@@ -48,7 +48,8 @@ def resolve_mjcf(robot_id: str, profile: dict[str, Any] | None = None) -> Path |
 
     1. env NNMIXER_MJCF_<ID> (NNMIXER_MJCF also accepted for microduck)
     2. robots/<id>/robot/scene.xml (converted or hand-made scene)
-    3. third_party/<id>/<upstream.sim_model> fetched by tools/robots/fetch_upstream.py
+    3. robots/<id>/robot/<sim.mjcf> (versioned hand-made model, when upstream has none)
+    4. third_party/<id>/<upstream.sim_model> fetched by tools/robots/fetch_upstream.py
     """
     import os
 
@@ -64,6 +65,9 @@ def resolve_mjcf(robot_id: str, profile: dict[str, Any] | None = None) -> Path |
     local = robot_dir(robot_id) / "robot" / "scene.xml"
     if local.is_file():
         return local
+    own = profile.get("sim", {}).get("mjcf")
+    if own and (robot_dir(robot_id) / "robot" / own).is_file():
+        return robot_dir(robot_id) / "robot" / own
     u = upstream(profile)
     rel = u.get("sim_model")
     if rel and str(rel).endswith(".xml"):

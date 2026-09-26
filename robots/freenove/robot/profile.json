@@ -1,0 +1,60 @@
+{
+  "robot_id": "freenove",
+  "nnm_robot": 10,
+  "class": "quadruped",
+  "display_name": "Freenove Robot Dog",
+  "n_joints": 12,
+  "obs_dim": 45,
+  "rate_hz": 50,
+  "q0": [
+    0.1007,
+    0.6635,
+    -0.0161,
+    -0.1007,
+    0.6635,
+    -0.0161,
+    0.1007,
+    0.6635,
+    -0.0161,
+    -0.1007,
+    0.6635,
+    -0.0161
+  ],
+  "joint_names": [
+    "FL_hip_roll",
+    "FL_hip_pitch",
+    "FL_knee",
+    "FR_hip_roll",
+    "FR_hip_pitch",
+    "FR_knee",
+    "RL_hip_roll",
+    "RL_hip_pitch",
+    "RL_knee",
+    "RR_hip_roll",
+    "RR_hip_pitch",
+    "RR_knee"
+  ],
+  "servo_fn0": 94,
+  "servos": "12× EMAX ES08MA II (12 g, analogici, 1,6 kgf·cm a 4,8 V) su PCA9685 0x40 a 50 Hz; Raspberry Pi, IMU MPU6050",
+  "link": "pwm",
+  "status": "needs-training-handmade",
+  "upstream": {
+    "repo": "https://github.com/Freenove/Freenove_Robot_Dog_Kit_for_Raspberry_Pi",
+    "branch": "master",
+    "license": "CC BY-NC-SA 3.0 (uso non commerciale)",
+    "sim_model_note": "nessun URDF, MJCF o CAD 3D upstream (solo Head_Part_2D.dwg): il modello robots/freenove/robot/freenove.xml è ricostruito dalla cinematica di Code/Server/Control.py, generato da tools/robots/freenove_mjcf.py e versionato in questo repo. Per cambiare masse, servo o misure si modifica lo script e si rigenera: `.venv/bin/python tools/robots/freenove_mjcf.py --gait`",
+    "cad": "non pubblicato (parti in acrilico tagliate al laser; solo Head_Part_2D.dwg nel repo)",
+    "bom": "Tutorial.pdf nel repo upstream (elenco parti, montaggio, cablaggio Step 13); servono 2× 18650 non protette e un Raspberry Pi 5 / 4B / 3B+",
+    "training": "nessuno upstream (passo open-loop in Control.py: traiettorie ellittiche dei piedi + IK, bilanciamento PID sull'IMU)",
+    "published_policy": "nessuna"
+  },
+  "sim": {
+    "actuator": "position",
+    "mjcf": "freenove.xml",
+    "trunk_body": "trunk",
+    "freejoint": "floating_base",
+    "gyro_sensor": "imu_gyro",
+    "accel_sensor": "imu_acc",
+    "home_z": 0.1014
+  }
+}

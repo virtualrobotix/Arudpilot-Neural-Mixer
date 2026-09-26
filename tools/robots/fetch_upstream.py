@@ -14,6 +14,8 @@ What it does, from the "upstream" block of robots/<id>/robot/profile.json:
 - URDF only (upstream.urdf): MuJoCo compiles the URDF, a free joint, a floor,
   IMU sensors and position actuators are added, result written to
   robots/<id>/robot/scene.xml
+- no upstream model (sim.mjcf): the hand-made MJCF versioned in
+  robots/<id>/robot/ is used; the clone only provides the reference code
 - optional published policy (upstream.policy_url): downloaded next to the
   robot's policies/ as <name>.onnx and converted to .nnm when the ONNX follows
   the NNMixer contract
@@ -109,7 +111,11 @@ def main() -> None:
     note = u.get("sim_model_note")
     sim_model = u.get("sim_model")
     root = THIRD_PARTY / (f"{args.robot}_model" if u.get("model_repo") else args.robot)
-    if sim_model and sim_model.endswith(".xml"):
+    own = profile.get("sim", {}).get("mjcf")
+    if own:
+        p = robot_dir(args.robot) / "robot" / own
+        print(f"MJCF in this repo: {p} ({'found' if p.is_file() else 'MISSING'})")
+    elif sim_model and sim_model.endswith(".xml"):
         p = root / sim_model
         print(f"native MJCF: {p} ({'found' if p.is_file() else 'MISSING'})")
     elif u.get("urdf"):

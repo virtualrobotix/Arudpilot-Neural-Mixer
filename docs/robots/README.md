@@ -20,6 +20,7 @@ Tutti i robot usano la stessa architettura PPO di MicroDuck (MLP 512-256-128 ELU
 | 7 | <a href="yertle.md"><img src="img/yertle.jpg" alt="Yertle" width="110"></a> | [Yertle](yertle.md) | quadrupede | 12 | 45 | 50 | pwm | — | scena MuJoCo generata dall'URDF; policy da addestrare |
 | 8 | <a href="albert.md"><img src="img/albert.jpg" alt="AlbertPro" width="110"></a> | [AlbertPro](albert.md) | quadrupede | 8 | 33 | 50 | pwm | — | scena MuJoCo nativa pronta; policy da addestrare |
 | 9 | <a href="openduck.md"><img src="img/openduck.jpg" alt="Open Duck Mini v2" width="110"></a> | [Open Duck Mini v2](openduck.md) | bipede | 14 | 51 | 50 | bus | — | scena MuJoCo nativa pronta; policy da addestrare |
+| 10 | <a href="freenove.md"><img src="img/freenove.jpg" alt="Freenove Robot Dog" width="110"></a> | [Freenove Robot Dog](freenove.md) | quadrupede | 12 | 45 | 50 | pwm | — | scena MuJoCo ricostruita dalla cinematica upstream; policy da addestrare |
 
 Le foto vengono dai repository originali; fonte sotto l'immagine in ogni scheda.
 
