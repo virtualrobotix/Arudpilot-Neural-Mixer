@@ -1,0 +1,42 @@
+{
+  "robot_id": "bimo",
+  "class": "biped",
+  "display_name": "Bimo",
+  "n_joints": 8,
+  "obs_dim": 0,
+  "rate_hz": 20,
+  "q0": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "joint_names": [
+    "joint_0",
+    "joint_1",
+    "joint_2",
+    "joint_3",
+    "joint_4",
+    "joint_5",
+    "joint_6",
+    "joint_7"
+  ],
+  "servo_fn0": 94,
+  "obs_layout": {
+    "gyro_flu": 3,
+    "gravity_flu": 3,
+    "q_minus_q0": "n_joints",
+    "qd": "n_joints",
+    "prev_action": "n_joints",
+    "twist_vx_vy_wz": 3,
+    "head_cmd": "optional",
+    "body_cmd": "optional"
+  },
+  "upstream": "https://github.com/mekion/the-bimo-project",
+  "status": "needs-mjcf",
+  "mjcf": "robot/scene.xml"
+}

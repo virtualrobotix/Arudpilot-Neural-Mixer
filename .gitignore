@@ -3,7 +3,15 @@ __pycache__/
 *.pyc
 sitl/run/*
 !sitl/run/.gitkeep
-*.npz
+*.onnx
 *.BIN
 *.bin
+!robots/**/robot.bin
+!sitl/APM/**/*.bin
+!sitl/APM/**/*.nnm
+# keep MicroDuck ONNX used by HIL / export under policies/ and robots/
+!policies/*.onnx
+!robots/**/policies/*.onnx
+!robots/**/policies/*.nnm
 .DS_Store
+ardupilot/APM/

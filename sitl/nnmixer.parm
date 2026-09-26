@@ -6,10 +6,13 @@
 SIM_RATE_HZ 200
 SCHED_LOOP_RATE 200
 
-# policy
+# policy — robot topology fixed at boot; POLICY indexes *.nnm under that robot
 NNM_ENABLE 1
+NNM_ROBOT 0
 NNM_POLICY 0
 NNM_LOG 1
+NNM_BLEND_MS 500
+
 
 # 14 joint servos on Scripting1..14 (94..107); wire encoding 1 us = 3 mrad around 1500
 SERVO1_FUNCTION 94

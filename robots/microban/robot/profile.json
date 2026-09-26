@@ -1,0 +1,24 @@
+{
+  "robot_id": "microban",
+  "class": "biped",
+  "display_name": "Microban",
+  "n_joints": 0,
+  "obs_dim": 0,
+  "rate_hz": 50,
+  "q0": [],
+  "joint_names": [],
+  "servo_fn0": 94,
+  "obs_layout": {
+    "gyro_flu": 3,
+    "gravity_flu": 3,
+    "q_minus_q0": "n_joints",
+    "qd": "n_joints",
+    "prev_action": "n_joints",
+    "twist_vx_vy_wz": 3,
+    "head_cmd": "optional",
+    "body_cmd": "optional"
+  },
+  "upstream": "https://github.com/Rhoban/mjlab_microban",
+  "status": "pipeline-ready",
+  "mjcf": "robot/scene.xml"
+}

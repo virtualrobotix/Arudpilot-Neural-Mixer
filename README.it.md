@@ -381,6 +381,13 @@ e inclinazione del tronco di circa 0,3–0,8°.
 
 ---
 
+
+
+## Catalogo robot
+
+Vedi [docs/robots/README.md](docs/robots/README.md): topologia al boot (`NNM_ROBOT`), policy su SD in `/APM/nnm/<id>/policies/`, due slot int8 in RAM.
+Pipeline: [robots/README.md](robots/README.md).
+
 ## Glossario
 
 - **Policy** — la rete neurale che mappa osservazione → azione; il "controllore".

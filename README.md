@@ -38,6 +38,7 @@ IT [`docs/architettura-integrazione.pdf`](docs/architettura-integrazione.pdf) / 
 8. [Running the demo and the tests](#8-running-the-demo-and-the-tests)
 9. [Results](#9-results)
 10. [Repository layout](#10-repository-layout)
+11. [Robot catalog](docs/robots/README.md) — bipeds/quadrupeds, SD layout, policy switch
 11. [Glossary](#glossary)
 
 ---
@@ -383,6 +384,17 @@ approximately 0.3–0.8° trunk tilt.
 | `scripts/hil_test.py` | automatic battery |
 | `scripts/demo_mavproxy.py` | visual demo driven through MAVProxy |
 | `docs/` | project document (IT), architecture slides, demo video |
+| `docs/robots/` | catalog of supported bipeds/quadrupeds |
+| `robots/<id>/` | per-robot topology (`robot/`) and policies (`policies/`) |
+| `sitl/APM/nnm/` | SITL mirror of the microSD layout (`/APM/nnm/<id>/`) |
+| `tools/robots/` | zero-policy step, train entrypoint, `export_nnm.py`, `pack_robot_bin.py` |
+
+### Robot topology vs policy (SD)
+
+- **`NNM_ROBOT`** (reboot): selects `/APM/nnm/<name>/robot.bin`. Topology does not change at runtime.
+- **`NNM_POLICY`**: index of a `.nnm` int8 file under that robot’s `policies/` only. A file whose `robot_id` does not match is rejected.
+- Active policy is **copied SD → RAM** into one of two int8 slots (~200 KB each). Switch loads the free slot, then blends actions for `NNM_BLEND_MS` (default 500 ms).
+- Without SD content, MicroDuck falls back to the float32 MLP baked in flash.
 
 ---
 
