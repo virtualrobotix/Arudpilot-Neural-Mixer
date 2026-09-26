@@ -29,7 +29,7 @@ network → MuJoCo). Pixhawk 6C hardware-in-the-loop: [`docs/media/pixhawk6c_mlp
 | MicroDuck on a Pixhawk 6C Mini (hardware-in-the-loop, float32 build) | 15 s standing, forward pass p50 4.9 ms, CPU 32.8% |
 | Policies from microSD, two int8 slots, switch with 0.5 s blend | SITL: battery 8/8 PASS with `walk.nnm` from SD (firmware vs `.nnm` parity 2.7e-7), switch test 5/5; Pixhawk 6C: builds, not yet run on the board |
 | Twist from MANUAL sticks, HOLD, GUIDED / AUTO / RTL / SMART_RTL | in firmware |
-| Other robots | profiles, PPO configs, MuJoCo scenes; Microban policy converted — see [the catalog](docs/robots/README.md) |
+| Other robots | profiles, PPO configs, MuJoCo scenes. Microban `walk_md` walks in sim ([it. 3000](docs/media/microban_walk_md_it3000.mp4)); Freenove Robot Dog `walk_v7` walks forward ([it. 2700](docs/media/freenove_walk_v7_it2700.mp4)). Checkpoint videos are on each [robot page](docs/robots/README.md) |
 | Real robot without the simulator | needs a servo-bus backend (Dynamixel / Feetech) for joint feedback, not written yet |
 
 ---
@@ -115,22 +115,24 @@ Topology is chosen at boot (`NNM_ROBOT`); policies can be switched at runtime, o
 robot. All robots use the MicroDuck network (MLP 512-256-128 ELU, int8 weights); only input and output sizes
 change.
 
-| `NNM_ROBOT` | Robot | Type | Joints | Obs | Policy in repo |
-|---:|---|---|---:|---:|---|
-| 0 | [MicroDuck](docs/robots/microduck.md) | biped | 14 | 61 | `walk.nnm` |
-| 1 | [Microban](docs/robots/microban.md) | humanoid | 18 | 63 | `walk.nnm` (upstream, needs fine-tuning) |
-| 2 | [Zeroth-01](docs/robots/zeroth.md) | humanoid | 20 | 69 | — |
-| 3 | [Bimo](docs/robots/bimo.md) | biped | 8 | 33 | — |
-| 4 | [Legolas](docs/robots/legolas.md) | biped | 10 | 39 | — |
-| 5 | [Upkie](docs/robots/upkie.md) | wheeled biped | 6 | 27 | — |
-| 6 | [Rex / SpotMicro](docs/robots/rex.md) | quadruped | 12 | 45 | — |
-| 7 | [Yertle](docs/robots/yertle.md) | quadruped | 12 | 45 | — |
-| 8 | [AlbertPro](docs/robots/albert.md) | quadruped | 8 | 33 | — |
-| 9 | [Open Duck Mini v2](docs/robots/openduck.md) | biped | 14 | 51 | — |
-| 10 | [Freenove Robot Dog](docs/robots/freenove.md) | quadruped | 12 | 45 | — |
+| `NNM_ROBOT` | Robot | Type | Joints | Obs | Policy in repo | Latest training video |
+|---:|---|---|---:|---:|---|---|
+| 0 | [MicroDuck](docs/robots/microduck.md) | biped | 14 | 61 | `walk.nnm` | — |
+| 1 | [Microban](docs/robots/microban.md) | humanoid | 18 | 63 | `walk.nnm`, `walk_md.nnm` | [`walk_md`, it. 3000, 15000 epochs](docs/robots/microban.md#risultati-per-versione-di-ambiente-ed-epoca) |
+| 2 | [Zeroth-01](docs/robots/zeroth.md) | humanoid | 20 | 69 | — | — |
+| 3 | [Bimo](docs/robots/bimo.md) | biped | 8 | 33 | — | — |
+| 4 | [Legolas](docs/robots/legolas.md) | biped | 10 | 39 | — | — |
+| 5 | [Upkie](docs/robots/upkie.md) | wheeled biped | 6 | 27 | — | — |
+| 6 | [Rex / SpotMicro](docs/robots/rex.md) | quadruped | 12 | 45 | — | — |
+| 7 | [Yertle](docs/robots/yertle.md) | quadruped | 12 | 45 | — | — |
+| 8 | [AlbertPro](docs/robots/albert.md) | quadruped | 8 | 33 | — | — |
+| 9 | [Open Duck Mini v2](docs/robots/openduck.md) | biped | 14 | 51 | — | — |
+| 10 | [Freenove Robot Dog](docs/robots/freenove.md) | quadruped | 12 | 45 | `walk_v7.nnm` | [`walk_v7`, it. 2700, 13500 epochs](docs/robots/freenove.md#risultati-per-versione-di-ambiente-ed-epoca) |
 
 Each robot page links the original repository, the model file, CAD and BOM, and lists joints, `q0`, servo
-outputs, the PPO architecture file (`robots/<id>/robot/ppo.yaml`) and the available policies.
+outputs, the PPO architecture file (`robots/<id>/robot/ppo.yaml`) and the available policies. Microban and
+Freenove also list every checkpoint video against the environment-config version and the training iteration
+(one iteration is 5 PPO epochs).
 
 ## Training a policy that deploys as is
 

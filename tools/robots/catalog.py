@@ -155,13 +155,45 @@ ROBOTS: dict[str, dict] = {
                                     "a comando 0,3; rotazione 0,68-0,87 rad/s a comando 0,8; laterale 0,04 m/s a "
                                     "comando 0,2; passo alternato e simmetrico (3-4 cm, 0,27-0,29 s per piede). "
                                     "W&B mjlab_microban/h5e7djou."},
+        # Each clip is the int8 policy on the ArduPilot contract. "env" is the reward/config
+        # version of that run; one training iteration is 5 PPO epochs.
         "videos": [{
+            "env": "walk_md",
+            "iteration": "3000",
+            "epochs": "15000",
+            "latest": True,
             "title": "Risultato dopo 3000 iterazioni (`walk_md.nnm`)",
             "gif": "microban_walk_md.gif",
             "mp4": "microban_walk_md_it3000.mp4",
-            "evolution": "microban_md_evolution.mp4",
-            "caption": "MuJoCo, policy int8 sul contratto ArduPilot: avanti 5 s a 0,3 m/s, destra 3 s, "
-                       "180° a sinistra, avanti 5 s. Nessuna caduta in 16,7 s, 2,4 m percorsi.",
+            "caption": "Ambiente allineato a MicroDuck più premi sul passo. Avanti 5 s a 0,3 m/s, "
+                       "destra 3 s, 180° a sinistra, avanti 5 s: nessuna caduta in 16,7 s, 2,4 m percorsi.",
+        }, {
+            "env": "walk_md",
+            "iteration": "0–3000",
+            "epochs": "0–15000",
+            "mp4": "microban_md_evolution.mp4",
+            "caption": "Evoluzione dello stesso ambiente: stessi comandi sui checkpoint successivi.",
+        }, {
+            "env": "walk_gait_v1",
+            "iteration": "900",
+            "epochs": "4500",
+            "mp4": "microban_gait_best_it900.mp4",
+            "caption": "Miglior checkpoint del run sul passo. Sta in piedi e ruota sul posto; "
+                       "l'avanzamento resta sotto 0,1 m.",
+        }, {
+            "env": "walk_gait_v1",
+            "iteration": "0–1400",
+            "epochs": "0–7000",
+            "mp4": "microban_evolution.mp4",
+            "caption": "14 clip, avanti 4 s poi rotazione. Entro 100 iterazioni non cade; "
+                       "dalla 500 ruota; in avanti si sposta di pochi centimetri.",
+        }, {
+            "env": "walk_ap",
+            "iteration": "200",
+            "epochs": "1000",
+            "mp4": "microban_sequence_it200.mp4",
+            "caption": "Rifinitura della policy upstream. Resta in piedi; la velocità comandata "
+                       "non è ancora seguita.",
         }],
         "notes": [
             "L'osservazione dell'ONNX è gyro, gravità proiettata, q−q0, q̇, azione precedente, twist: il formato "
@@ -487,7 +519,7 @@ ROBOTS["freenove"] = {
     "class": "quadruped",
     "display_name": "Freenove Robot Dog",
     "maker": "Freenove (kit FNK0050)",
-    "status": "needs-training-handmade",
+    "status": "policy-sim",
     "joint_names": [
         "FL_hip_roll", "FL_hip_pitch", "FL_knee",
         "FR_hip_roll", "FR_hip_pitch", "FR_knee",
@@ -518,8 +550,12 @@ ROBOTS["freenove"] = {
     "sim": {"actuator": "position", "mjcf": "freenove.xml", "trunk_body": "trunk",
             "freejoint": "floating_base", "gyro_sensor": "imu_gyro", "accel_sensor": "imu_acc",
             "home_z": 0.1014,
-            "feet": [{"site": f"{leg}_foot", "body": f"{leg}_shank"} for leg in ("FL", "FR", "RL", "RR")],
-            "trot_pairs": [[0, 3], [1, 2]]},                  # FL+RR, FR+RL
+            # the foot sphere, not the whole shank: walk_v4 leaned on the shanks with the feet up and it counted
+            # as stance
+            "feet": [{"site": f"{leg}_foot", "body": f"{leg}_shank", "geom": f"{leg}_foot"}
+                     for leg in ("FL", "FR", "RL", "RR")],
+            "trot_pairs": [[0, 3], [1, 2]],                   # FL+RR, FR+RL
+            "footfall_cycle": [2, 0, 3, 1]},                  # dog walk: RL, FL, RR, FR
     # Quadruped version of the MicroDuck / Microban velocity task (mjlab Go1 terms), scaled to a 0.55 kg
     # robot with 10 cm legs and 0.17 N.m servos:
     # - tracking std 0.12 m/s and 0.4 rad/s: half the commanded range, as Go1 (std 0.5 on +/-1 m/s); the
@@ -547,19 +583,46 @@ ROBOTS["freenove"] = {
         "pose": 0.5, "walking_threshold": 0.01,
         "pose_std_standing": {".*hip_roll": 0.05, ".*hip_pitch": 0.1, ".*knee": 0.1},
         "pose_std_walking": {".*hip_roll": 0.15, ".*hip_pitch": 0.4, ".*knee": 0.4},
-        "action_rate": -0.1, "alive": 0.0,
+        "action_rate": -0.1,
+        # with tracking tight, standing no longer pays and the penalties outweighed the rewards (-0.09 per
+        # second): episodes got shorter. alive keeps surviving positive; walking vs standing is unchanged.
+        "alive": 1.0,
         "body_ang_vel": -0.05, "dof_pos_limits": -1.0, "self_collisions": -1.0,
-        "air_time": 10.0, "air_time_mode": "touchdown", "air_time_min_s": 0.05, "air_time_max_s": 0.3,
+        "air_time": 10.0, "air_time_mode": "touchdown", "air_time_min_s": 0.15, "air_time_max_s": 0.45,
         "foot_clearance": -2.0, "foot_swing_height": -0.25, "swing_height_m": 0.015, "foot_slip": -0.1,
-        "trot": 1.0,
+        # walk_v3 at iteration 600 still stood still, crouched at 7.5 cm (stand 10 cm) with the knees folded
+        # 0.85 rad: the four-beat dog walk replaces the trot (legs lifted one after the other, rear-left,
+        # front-left, rear-right, front-right), all four feet down while commanded to move costs, and the
+        # trunk is rewarded at the stand height.
+        "trot": 0.0,
+        # walk_v5 walked from iteration 900 with the dog sequence but frantically: joints at 7.7 rad/s rms
+        # (servo no-load 8.7), 29 touchdowns per second, 0.08 s swings. A step now needs 0.12 s airborne to
+        # count, joint speed is penalised and the action rate starts at -0.4 instead of -0.1.
+        # walk_v7 walked forward at iteration 2700 with 0.14 s swings and ~20 touchdowns per second (a dog
+        # walks at 4-6): a step counts from 0.2 s airborne, air time is paid between 0.15 and 0.45 s
+        "footfall_sequence": 0.5, "alternation_min_air_s": 0.2, "alternation_min_height_frac": 0.5,
+        "joint_vel": -0.001,
+        # resuming the frantic policy under the new penalties made falling pay (episodes of 27 steps): a fall
+        # now costs 10 and the action rate ramps from -0.1 to -0.4 over 300 iterations after iteration 1000
+        "termination": -10.0,
+        # walk_v6 slowed down to standing still (iteration 1100-1300, 0.002 m/s on every command): standing
+        # while commanded costs 5 per second, scaled by the share of the command not achieved
+        "no_progress": -5.0, "no_progress_min_cmd": 0.03,
+        # walk_v4 moved from iteration 900 (0.10 m/s forward, 0.13 backward) by hopping and spinning: one foot
+        # down 55% of the time, none 14%, three only 4%. A walking dog never has fewer than two feet down.
+        "three_stance": 4.0, "all_stance": -2.0, "under_stance": -4.0, "under_stance_feet": 2,
+        "undesired_contacts": -3.0,     # shank, thigh, servo, trunk or head on the floor
+        "base_height": 2.0, "base_height_target_m": 0.10, "base_height_std_m": 0.01,
         "joint_torque": -0.05,
     },
     "env": {
-        "resample_s": [3.0, 8.0], "p_zero_command": 0.02, "p_no_lateral": 0.1,
+        # walk_v7 learned forward only: backward, lateral and turn stayed at zero from iteration 1900. With
+        # three random axes at once a clean backward or turn command was rare; 80% of the commands are now on
+        # one axis (forward, backward, left, right, turn left, turn right), 50-100% of the range.
+        "resample_s": [3.0, 8.0], "p_zero_command": 0.02, "p_no_lateral": 0.1, "p_single_axis": 0.8,
         "push": {"interval_s": [4.0, 8.0], "vel_xy": 0.05},
         "curriculum": {
-            "action_rate_stages": [[0, -0.1], [12000, -0.2], [18000, -0.4], [24000, -0.6],
-                                   [30000, -0.8], [36000, -1.0]],
+            "action_rate_stages": [[0, -0.1], [26400, -0.2], [28800, -0.3], [31200, -0.4]],
             "standing_stages": [[0, 0.02], [12000, 0.05], [18000, 0.1], [24000, 0.15],
                                 [36000, 0.2], [48000, 0.25]],
         },
@@ -572,7 +635,76 @@ ROBOTS["freenove"] = {
     "servos": "12× EMAX ES08MA II (12 g, analogici, 1,6 kgf·cm a 4,8 V) su PCA9685 0x40 a 50 Hz; "
               "Raspberry Pi, IMU MPU6050",
     "link": "pwm",
-    "policies": {},
+    "policies": {
+        "walk_v7.nnm": "addestrata da zero sul contratto ArduPilot in int8 (QAT), ambiente walk_v7 "
+                       "(passo da cane, un comando per asse). Checkpoint dell'iterazione 3000 "
+                       "(15000 epoche PPO, punteggio 0,59). In valutazione sopravvive sempre: "
+                       "avanti 0,21 m/s a comando 0,15; indietro, laterale e rotazione non ancora seguiti.",
+    },
+    # Each clip is the int8 policy. "env" is that run's reward configuration; one iteration is 5 PPO epochs.
+    "videos": [{
+        "env": "walk_v7",
+        "iteration": "2700",
+        "epochs": "13500",
+        "latest": True,
+        "mp4": "freenove_walk_v7_it2700.mp4",
+        "caption": "Ultimo video di comportamento, prima del checkpoint pubblicato (iterazione 3000). "
+                   "Non cade, tronco a 10 cm. Avanti dritto a circa 0,2 m/s; indietro, laterale e "
+                   "rotazione restano fermi. Circa 20 atterraggi al secondo.",
+    }, {
+        "env": "walk_v7",
+        "iteration": "2000",
+        "epochs": "10000",
+        "mp4": "freenove_walk_v7_it2000.mp4",
+        "caption": "Cammina avanti, alto sui piedi, più calmo di walk_v5: giunti 4,5 rad/s, "
+                   "due o più piedi a terra l'80% del tempo.",
+    }, {
+        "env": "walk_v7",
+        "iteration": "1600",
+        "epochs": "8000",
+        "mp4": "freenove_walk_v7_it1600.mp4",
+        "caption": "Ripresa da walk_v6 con la penalità per lo stare fermo. Ancora poco spostamento "
+                   "nella direzione comandata.",
+    }, {
+        "env": "walk_v5",
+        "iteration": "900",
+        "epochs": "4500",
+        "mp4": "freenove_walk_v5_it0900.mp4",
+        "caption": "Primo checkpoint che avanza (0,17 m/s) con la sequenza dei passi del cane, "
+                   "ma frenetico: 7,7 rad/s e circa 260° di rotazione nei 5 s di avanti.",
+    }, {
+        "env": "walk_v5",
+        "iteration": "0–200",
+        "epochs": "0–1000",
+        "mp4": "freenove_evolution_v5.mp4",
+        "caption": "Alto sui piedi e solleva una zampa alla volta, senza seguire la direzione.",
+    }, {
+        "env": "walk_v4",
+        "iteration": "0–900",
+        "epochs": "0–4500",
+        "mp4": "freenove_evolution_v4.mp4",
+        "caption": "Dall'iterazione 900 si sposta saltando e ruotando, non con un passo.",
+    }, {
+        "env": "walk_v2",
+        "iteration": "0–400",
+        "epochs": "0–2000",
+        "mp4": "freenove_evolution_v2.mp4",
+        "caption": "Impara solo a stare in piedi, accucciato e fermo, qualunque sia il comando.",
+    }, {
+        "env": "walk",
+        "iteration": "0–300",
+        "epochs": "0–1500",
+        "mp4": "freenove_evolution_it0300.mp4",
+        "caption": "Prima configurazione. Dalla iterazione 100 resta in piedi vibrando le zampe "
+                   "sul posto, senza camminare.",
+    }, {
+        "env": "walk",
+        "iteration": "100",
+        "epochs": "500",
+        "mp4": "freenove_walk_it0100.mp4",
+        "caption": "Sequenza completa dei comandi. In piedi per 26 s, spostamento netto 0,21 m, "
+                   "rotazione non comandata.",
+    }],
     # grandezza, Freenove, AlbertPro, fonte Freenove
     "mechanics": {
         "compare_with": "AlbertPro",
@@ -652,7 +784,8 @@ PHOTOS = {
 
 STATUS_TEXT = {
     "policy": "policy int8 disponibile; la stessa rete in float32 è validata in SITL e HIL",
-    "policy-upstream": "policy upstream convertita in int8; simulazione e training pronti",
+    "policy-upstream": "walk_md.nnm addestrata sul contratto ArduPilot; walk.nnm upstream da rifinire",
+    "policy-sim": "policy int8 addestrata in simulazione; video dei checkpoint nella scheda",
     "needs-training": "scena MuJoCo generata dall'URDF; policy da addestrare",
     "needs-training-mjcf": "scena MuJoCo nativa pronta; policy da addestrare",
     "needs-training-handmade": "scena MuJoCo ricostruita dalla cinematica upstream; policy da addestrare",

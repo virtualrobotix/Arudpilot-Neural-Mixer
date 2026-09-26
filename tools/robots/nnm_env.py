@@ -73,6 +73,31 @@ class RewardWeights:
     trot: float = 0.0
     # sum of (actuator force / force limit)^2: small hobby servos run close to stall
     joint_torque: float = 0.0
+    # quadruped four-beat walk, phase-free. footfall_sequence: per touchdown after a real swing, +w if the
+    # foot follows the previous touchdown in sim.footfall_cycle (reversed when commanded backward), -w/2 if
+    # the same foot steps again. three_stance: exactly one foot airborne (for less than air_time_max_s)
+    # while moving. all_stance: all four feet down while moving (negative weight).
+    footfall_sequence: float = 0.0
+    three_stance: float = 0.0
+    all_stance: float = 0.0
+    # fewer than under_stance_feet feet on the ground (hops, flight phases), commanded or not (negative weight)
+    under_stance: float = 0.0
+    under_stance_feet: int = 2
+    # per floor contact of a robot geom that is not a foot geom (shank, thigh, trunk lying on the floor)
+    undesired_contacts: float = 0.0
+    # sum of joint velocities squared (legged_gym dof_vel): slower, smoother leg motion
+    joint_vel: float = 0.0
+    # one-off reward when the episode ends by a fall (negative): falling never pays to end a costly episode
+    termination: float = 0.0
+    # standing still while commanded to move (negative weight): 1 - progress, with progress the share of the
+    # commanded velocity actually achieved (filtered twist projected on the command, clipped to [0, 1]),
+    # averaged over the commanded linear and yaw parts
+    no_progress: float = 0.0
+    no_progress_min_cmd: float = 0.03
+    # exp(-((trunk height - target) / std)^2): keeps the stand height instead of crouching
+    base_height: float = 0.0
+    base_height_target_m: float = 0.1
+    base_height_std_m: float = 0.01
     # MicroDuck (mjlab velocity task) shapes, off by default
     upright_std: float | None = None        # exp(-|g_xy|^2 / std^2) on the true trunk orientation
     pose_std_standing: dict | None = None   # variable_posture: per-joint std (regex -> std)
@@ -109,6 +134,7 @@ class NNMixerEnv:
         self.cmd_ranges = env_cfg.get("command_ranges", {"vx": [-0.4, 0.4], "vy": [-0.3, 0.3], "wz": [-1.0, 1.0]})
         self.p_zero_cmd = float(env_cfg.get("p_zero_command", 0.2))
         self.p_no_vy = float(env_cfg.get("p_no_lateral", 0.3))
+        self.p_single_axis = float(env_cfg.get("p_single_axis", 0.0))
         self.episode_s = float(env_cfg.get("episode_s", 20.0))
         self.gyro_noise = float(env_cfg.get("gyro_noise", 0.02))
         self.accel_noise = float(env_cfg.get("accel_noise", 0.05))
@@ -199,7 +225,19 @@ class NNMixerEnv:
                 raise ValueError(f"foot {f} not in MJCF")
             self.feet.append((sid, bid))
         self.foot_body_ids = {bid for _, bid in self.feet}
+        # optional foot geom: only that geom counts as the foot touching the floor (a shank lying on the
+        # floor is not a foot contact)
+        self.foot_geom_index = {}
+        for i, f in enumerate(self.sim.get("feet", [])):
+            if f.get("geom"):
+                gid = mujoco.mj_name2id(m, mujoco.mjtObj.mjOBJ_GEOM, f["geom"])
+                if gid < 0:
+                    raise ValueError(f"foot geom {f['geom']} not in MJCF")
+                self.foot_geom_index[gid] = i
         self.trot_pairs = [tuple(p) for p in self.sim.get("trot_pairs", [])]
+        cycle = list(self.sim.get("footfall_cycle", []))
+        self.footfall_next = {a: cycle[(k + 1) % len(cycle)] for k, a in enumerate(cycle)}
+        self.footfall_prev = {a: cycle[k - 1] for k, a in enumerate(cycle)}
         lim = m.actuator_forcerange[np.maximum(self.act_idx, 0), 1]
         self.force_limit = np.where(lim > 0, lim, 1.0)
         # joint soft limits (mjlab joint_pos_limits) and per-joint posture std
@@ -246,6 +284,14 @@ class NNMixerEnv:
         if self.rng.random() < self.p_zero_cmd:
             return np.zeros(3, np.float32)
         r = self.cmd_ranges
+        if self.rng.random() < self.p_single_axis:
+            # one axis, one sign, between half and full range: every direction gets clear commands
+            axis = int(self.rng.integers(3))
+            lo, hi = r[("vx", "vy", "wz")[axis]]
+            limit = hi if self.rng.random() < 0.5 else lo
+            t = np.zeros(3, np.float32)
+            t[axis] = limit * self.rng.uniform(0.5, 1.0)
+            return dc.saturate_twist(self.contract, t)
         t = np.array([self.rng.uniform(*r["vx"]), self.rng.uniform(*r["vy"]), self.rng.uniform(*r["wz"])],
                      np.float32)
         if self.rng.random() < self.p_no_vy:
@@ -318,6 +364,8 @@ class NNMixerEnv:
         self.foot_air_prev = np.zeros(nf)
         self.foot_air_prev_step = np.zeros(nf)
         self.last_touchdown = -1
+        self.last_footfall = -1
+        self.foot_air_prev_seq = np.zeros(nf)
         self.last_step_peak = 0.0
         self.last_step_air = 0.0
         self.next_resample = self._next_resample()
@@ -368,6 +416,9 @@ class NNMixerEnv:
             self.next_push = self.steps + int(self.rng.uniform(*self.push_interval) * c.rate_hz)
         reward, info = self._reward(action)
         fell = self.tilt_deg() > self.fall_tilt_deg
+        if fell and self.w.termination:
+            info["terms"]["termination"] = self.w.termination
+            reward += self.w.termination
         timeout = self.steps >= self.max_steps
         for k, v in info["terms"].items():
             self._ep_terms[k] = self._ep_terms.get(k, 0.0) + v
@@ -386,14 +437,29 @@ class NNMixerEnv:
             con = d.contact[k]
             g1, g2 = con.geom1, con.geom2
             if g1 in self.floor_geoms:
-                b = m.geom_bodyid[g2]
+                g = g2
             elif g2 in self.floor_geoms:
-                b = m.geom_bodyid[g1]
+                g = g1
             else:
                 continue
-            if b in index:
-                touch[index[b]] = True
+            if self.foot_geom_index:
+                if g in self.foot_geom_index:
+                    touch[self.foot_geom_index[g]] = True
+            elif m.geom_bodyid[g] in index:
+                touch[index[m.geom_bodyid[g]]] = True
         return touch
+
+    def _undesired_contacts(self) -> int:
+        """Robot geoms other than the feet touching the floor (legged_gym collision penalty)."""
+        d = self.data
+        n = 0
+        for k in range(d.ncon):
+            con = d.contact[k]
+            g1, g2 = con.geom1, con.geom2
+            g = g2 if g1 in self.floor_geoms else (g1 if g2 in self.floor_geoms else -1)
+            if g >= 0 and self.robot_geom[g] and g not in self.foot_geom_index:
+                n += 1
+        return n
 
     def _gait_terms(self, dt: float) -> dict:
         """feet_air_time, foot_clearance and foot_slip of the MicroDuck mjlab velocity task."""
@@ -463,6 +529,28 @@ class NNMixerEnv:
             out["foot_lift"] = w.foot_lift * float(np.sum(lift)) * moving * dt
         if w.foot_swing_height:
             out["foot_swing_height"] = w.foot_swing_height * swing * dt
+        n_feet = len(contact)
+        if w.three_stance and n_feet == 4:
+            one_up = contact.sum() == 3 and bool(np.all(self.foot_air[~contact] < w.air_time_max_s))
+            out["three_stance"] = w.three_stance * float(one_up) * moving * dt
+        if w.under_stance:
+            out["under_stance"] = w.under_stance * float(contact.sum() < w.under_stance_feet) * dt
+        if w.all_stance and n_feet == 4:
+            out["all_stance"] = w.all_stance * float(contact.all()) * moving * dt
+        if w.footfall_sequence and self.footfall_next:
+            seq = 0.0
+            backward = self.command[0] < 0
+            for i in np.flatnonzero(first):
+                if (self.foot_air_prev_seq[i] < w.alternation_min_air_s
+                        or peak_at_touch[i] < w.alternation_min_height_frac * w.swing_height_m):
+                    continue
+                last = self.last_footfall
+                if last >= 0:
+                    expected = self.footfall_prev[last] if backward else self.footfall_next[last]
+                    seq += 1.0 if i == expected else (-0.5 if i == last else 0.0)
+                self.last_footfall = int(i)
+            out["footfall_sequence"] = w.footfall_sequence * seq * moving
+        self.foot_air_prev_seq = self.foot_air.copy()
         if w.trot and self.trot_pairs:
             (a, b), (c, e) = self.trot_pairs
             trot_now = contact[a] == contact[b] and contact[c] == contact[e] and contact[a] != contact[c]
@@ -520,6 +608,22 @@ class NNMixerEnv:
         if w.angular_momentum:
             mujoco.mj_subtreeVel(m, d)
             terms["angular_momentum"] = w.angular_momentum * float(np.sum(d.subtree_angmom[self.trunk_id] ** 2)) * dt
+        if w.no_progress:
+            lack = []
+            c_xy = float(np.linalg.norm(cmd[:2]))
+            if c_xy > w.no_progress_min_cmd:
+                lack.append(1.0 - float(np.clip(np.dot(v_track[:2], cmd[:2]) / c_xy ** 2, 0.0, 1.0)))
+            if abs(cmd[2]) > 3 * w.no_progress_min_cmd:
+                lack.append(1.0 - float(np.clip(wz_track / cmd[2], 0.0, 1.0)))
+            if lack:
+                terms["no_progress"] = w.no_progress * float(np.mean(lack)) * dt
+        if w.joint_vel:
+            terms["joint_vel"] = w.joint_vel * float(np.sum(d.qvel[self.qvel_idx] ** 2)) * dt
+        if w.undesired_contacts:
+            terms["undesired_contacts"] = w.undesired_contacts * self._undesired_contacts() * dt
+        if w.base_height:
+            dz = float(d.qpos[self.free_qpos + 2]) - w.base_height_target_m
+            terms["base_height"] = w.base_height * math.exp(-(dz / w.base_height_std_m) ** 2) * dt
         if w.joint_torque:
             tau = d.actuator_force[self.act_idx] / self.force_limit
             terms["joint_torque"] = w.joint_torque * float(np.sum(tau ** 2)) * dt

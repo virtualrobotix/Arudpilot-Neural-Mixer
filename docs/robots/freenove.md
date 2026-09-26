@@ -12,7 +12,7 @@
 | `NNM_ROBOT` | **10** |
 | Classe | quadrupede |
 | Progetto | Freenove (kit FNK0050) |
-| Stato | scena MuJoCo ricostruita dalla cinematica upstream; policy da addestrare |
+| Stato | policy int8 addestrata in simulazione; video dei checkpoint nella scheda |
 | Giunti comandati | 12 |
 | Osservazione | 45 valori |
 | Frequenza policy | 50 Hz |
@@ -87,7 +87,25 @@ File: [`robots/freenove/robot/ppo.yaml`](../../robots/freenove/robot/ppo.yaml). 
 
 Cartella: [`robots/freenove/policies/`](../../robots/freenove/policies/) → sulla microSD `/APM/nnm/freenove/policies/`. `NNM_POLICY` = indice del file in ordine alfabetico.
 
-Nessuna policy ancora: va addestrata (sezione successiva).
+| File | Dimensione | Descrizione |
+|---|---:|---|
+| `walk_v7.nnm` | 192 KB | addestrata da zero sul contratto ArduPilot in int8 (QAT), ambiente walk_v7 (passo da cane, un comando per asse). Checkpoint dell'iterazione 3000 (15000 epoche PPO, punteggio 0,59). In valutazione sopravvive sempre: avanti 0,21 m/s a comando 0,15; indietro, laterale e rotazione non ancora seguiti. |
+
+### Risultati per versione di ambiente ed epoca
+
+Ogni link è la policy int8, quella che gira sull'autopilota, a quel checkpoint. La versione è la configurazione di reward e comandi di quel run (`robots/freenove/robot/ppo.yaml` ne tiene l'ultima). Un'iterazione di training esegue 5 epoche PPO.
+
+| Versione ambiente | Iterazione | Epoche PPO | Video | Risultato |
+|---|---:|---:|---|---|
+| `walk_v7` | 2700 | 13500 | [`freenove_walk_v7_it2700.mp4`](../media/freenove_walk_v7_it2700.mp4) | Ultimo video di comportamento, prima del checkpoint pubblicato (iterazione 3000). Non cade, tronco a 10 cm. Avanti dritto a circa 0,2 m/s; indietro, laterale e rotazione restano fermi. Circa 20 atterraggi al secondo. |
+| `walk_v7` | 2000 | 10000 | [`freenove_walk_v7_it2000.mp4`](../media/freenove_walk_v7_it2000.mp4) | Cammina avanti, alto sui piedi, più calmo di walk_v5: giunti 4,5 rad/s, due o più piedi a terra l'80% del tempo. |
+| `walk_v7` | 1600 | 8000 | [`freenove_walk_v7_it1600.mp4`](../media/freenove_walk_v7_it1600.mp4) | Ripresa da walk_v6 con la penalità per lo stare fermo. Ancora poco spostamento nella direzione comandata. |
+| `walk_v5` | 900 | 4500 | [`freenove_walk_v5_it0900.mp4`](../media/freenove_walk_v5_it0900.mp4) | Primo checkpoint che avanza (0,17 m/s) con la sequenza dei passi del cane, ma frenetico: 7,7 rad/s e circa 260° di rotazione nei 5 s di avanti. |
+| `walk_v5` | 0–200 | 0–1000 | [`freenove_evolution_v5.mp4`](../media/freenove_evolution_v5.mp4) | Alto sui piedi e solleva una zampa alla volta, senza seguire la direzione. |
+| `walk_v4` | 0–900 | 0–4500 | [`freenove_evolution_v4.mp4`](../media/freenove_evolution_v4.mp4) | Dall'iterazione 900 si sposta saltando e ruotando, non con un passo. |
+| `walk_v2` | 0–400 | 0–2000 | [`freenove_evolution_v2.mp4`](../media/freenove_evolution_v2.mp4) | Impara solo a stare in piedi, accucciato e fermo, qualunque sia il comando. |
+| `walk` | 0–300 | 0–1500 | [`freenove_evolution_it0300.mp4`](../media/freenove_evolution_it0300.mp4) | Prima configurazione. Dalla iterazione 100 resta in piedi vibrando le zampe sul posto, senza camminare. |
+| `walk` | 100 | 500 | [`freenove_walk_it0100.mp4`](../media/freenove_walk_it0100.mp4) | Sequenza completa dei comandi. In piedi per 26 s, spostamento netto 0,21 m, rotazione non comandata. |
 
 ## Training compatibile con ArduPilot
 

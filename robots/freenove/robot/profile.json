@@ -37,7 +37,7 @@
   "servo_fn0": 94,
   "servos": "12× EMAX ES08MA II (12 g, analogici, 1,6 kgf·cm a 4,8 V) su PCA9685 0x40 a 50 Hz; Raspberry Pi, IMU MPU6050",
   "link": "pwm",
-  "status": "needs-training-handmade",
+  "status": "policy-sim",
   "upstream": {
     "repo": "https://github.com/Freenove/Freenove_Robot_Dog_Kit_for_Raspberry_Pi",
     "branch": "master",
@@ -59,19 +59,23 @@
     "feet": [
       {
         "site": "FL_foot",
-        "body": "FL_shank"
+        "body": "FL_shank",
+        "geom": "FL_foot"
       },
       {
         "site": "FR_foot",
-        "body": "FR_shank"
+        "body": "FR_shank",
+        "geom": "FR_foot"
       },
       {
         "site": "RL_foot",
-        "body": "RL_shank"
+        "body": "RL_shank",
+        "geom": "RL_foot"
       },
       {
         "site": "RR_foot",
-        "body": "RR_shank"
+        "body": "RR_shank",
+        "geom": "RR_foot"
       }
     ],
     "trot_pairs": [
@@ -83,6 +87,12 @@
         1,
         2
       ]
+    ],
+    "footfall_cycle": [
+      2,
+      0,
+      3,
+      1
     ]
   }
 }

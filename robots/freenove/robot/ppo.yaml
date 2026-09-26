@@ -77,23 +77,39 @@ env:
       .*hip_roll: 0.15
       .*hip_pitch: 0.4
       .*knee: 0.4
-    alive: 0.0
+    alive: 1.0
     body_ang_vel: -0.05
     dof_pos_limits: -1.0
     self_collisions: -1.0
     air_time: 10.0
     air_time_mode: touchdown
-    air_time_min_s: 0.05
-    air_time_max_s: 0.3
+    air_time_min_s: 0.15
+    air_time_max_s: 0.45
     foot_clearance: -2.0
     foot_swing_height: -0.25
     swing_height_m: 0.015
     foot_slip: -0.1
-    trot: 1.0
+    trot: 0.0
+    footfall_sequence: 0.5
+    alternation_min_air_s: 0.2
+    alternation_min_height_frac: 0.5
+    joint_vel: -0.001
+    termination: -10.0
+    no_progress: -5.0
+    no_progress_min_cmd: 0.03
+    three_stance: 4.0
+    all_stance: -2.0
+    under_stance: -4.0
+    under_stance_feet: 2
+    undesired_contacts: -3.0
+    base_height: 2.0
+    base_height_target_m: 0.1
+    base_height_std_m: 0.01
     joint_torque: -0.05
   resample_s:
   - 3.0
   - 8.0
+  p_single_axis: 0.8
   push:
     interval_s:
     - 4.0
@@ -103,16 +119,12 @@ env:
     action_rate_stages:
     - - 0
       - -0.1
-    - - 12000
+    - - 26400
       - -0.2
-    - - 18000
+    - - 28800
+      - -0.3
+    - - 31200
       - -0.4
-    - - 24000
-      - -0.6
-    - - 30000
-      - -0.8
-    - - 36000
-      - -1.0
     standing_stages:
     - - 0
       - 0.02

@@ -12,7 +12,7 @@
 | `NNM_ROBOT` | **1** |
 | Classe | bipede |
 | Progetto | Rhoban |
-| Stato | policy upstream convertita in int8; simulazione e training pronti |
+| Stato | walk_md.nnm addestrata sul contratto ArduPilot; walk.nnm upstream da rifinire |
 | Giunti comandati | 18 |
 | Osservazione | 63 valori |
 | Frequenza policy | 50 Hz |
@@ -77,11 +77,23 @@ Cartella: [`robots/microban/policies/`](../../robots/microban/policies/) → sul
 | `walk.nnm` | 201 KB | walk.onnx pubblicato da Rhoban (MLP 63-512-256-128-18, stesso contratto NNMixer) convertito in int8 per riga. Nell'ambiente a contratto: in piedi 10 s, avanti cade a 6,8 s, rotazione cade a 1 s. Con la gravità esatta del simulatore regge 10 s in avanti: la policy è stata addestrata senza il filtro IMU dell'autopilota. Da rifinire con --init-onnx prima dell'uso. |
 | `walk_md.nnm` | 201 KB | addestrata da zero sul contratto ArduPilot in int8 (QAT): reward e curriculum del task MicroDuck più premi sul passo (appoggio singolo, piede sollevato, alternanza, simmetria), 512 env × 3000 iterazioni, checkpoint 2700 (punteggio 0,64). Sopravvivenza 100% in tutte le modalità; avanti/indietro ~0,16-0,19 m/s a comando 0,3; rotazione 0,68-0,87 rad/s a comando 0,8; laterale 0,04 m/s a comando 0,2; passo alternato e simmetrico (3-4 cm, 0,27-0,29 s per piede). W&B mjlab_microban/h5e7djou. |
 
+### Risultati per versione di ambiente ed epoca
+
+Ogni link è la policy int8, quella che gira sull'autopilota, a quel checkpoint. La versione è la configurazione di reward e comandi di quel run (`robots/microban/robot/ppo.yaml` ne tiene l'ultima). Un'iterazione di training esegue 5 epoche PPO.
+
+| Versione ambiente | Iterazione | Epoche PPO | Video | Risultato |
+|---|---:|---:|---|---|
+| `walk_md` | 3000 | 15000 | [`microban_walk_md_it3000.mp4`](../media/microban_walk_md_it3000.mp4) | Ambiente allineato a MicroDuck più premi sul passo. Avanti 5 s a 0,3 m/s, destra 3 s, 180° a sinistra, avanti 5 s: nessuna caduta in 16,7 s, 2,4 m percorsi. |
+| `walk_md` | 0–3000 | 0–15000 | [`microban_md_evolution.mp4`](../media/microban_md_evolution.mp4) | Evoluzione dello stesso ambiente: stessi comandi sui checkpoint successivi. |
+| `walk_gait_v1` | 900 | 4500 | [`microban_gait_best_it900.mp4`](../media/microban_gait_best_it900.mp4) | Miglior checkpoint del run sul passo. Sta in piedi e ruota sul posto; l'avanzamento resta sotto 0,1 m. |
+| `walk_gait_v1` | 0–1400 | 0–7000 | [`microban_evolution.mp4`](../media/microban_evolution.mp4) | 14 clip, avanti 4 s poi rotazione. Entro 100 iterazioni non cade; dalla 500 ruota; in avanti si sposta di pochi centimetri. |
+| `walk_ap` | 200 | 1000 | [`microban_sequence_it200.mp4`](../media/microban_sequence_it200.mp4) | Rifinitura della policy upstream. Resta in piedi; la velocità comandata non è ancora seguita. |
+
 ### Risultato dopo 3000 iterazioni (`walk_md.nnm`)
 
 <a href="../media/microban_walk_md_it3000.mp4"><img src="img/microban_walk_md.gif" alt="Risultato dopo 3000 iterazioni (walk_md.nnm)" width="480"></a>
 
-*MuJoCo, policy int8 sul contratto ArduPilot: avanti 5 s a 0,3 m/s, destra 3 s, 180° a sinistra, avanti 5 s. Nessuna caduta in 16,7 s, 2,4 m percorsi. Video: [`docs/media/microban_walk_md_it3000.mp4`](../media/microban_walk_md_it3000.mp4), evoluzione del training: [`docs/media/microban_md_evolution.mp4`](../media/microban_md_evolution.mp4).*
+*Ambiente allineato a MicroDuck più premi sul passo. Avanti 5 s a 0,3 m/s, destra 3 s, 180° a sinistra, avanti 5 s: nessuna caduta in 16,7 s, 2,4 m percorsi. Video: [`docs/media/microban_walk_md_it3000.mp4`](../media/microban_walk_md_it3000.mp4).*
 
 ## Training compatibile con ArduPilot
 

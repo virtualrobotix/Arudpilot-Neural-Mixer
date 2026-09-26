@@ -181,17 +181,38 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         lines.append("")
     else:
         lines += ["Nessuna policy ancora: va addestrata (sezione successiva).", ""]
-    for v in r.get("videos", []):
+    videos = r.get("videos") or []
+    if videos:
         lines += [
-            f"### {v['title']}",
+            "### Risultati per versione di ambiente ed epoca",
             "",
-            f'<a href="../media/{v["mp4"]}"><img src="img/{v["gif"]}" alt="{v["title"].replace("`", "")}" width="480"></a>',
+            "Ogni link è la policy int8, quella che gira sull'autopilota, a quel checkpoint. "
+            f"La versione è la configurazione di reward e comandi di quel run "
+            f"(`robots/{rid}/robot/ppo.yaml` ne tiene l'ultima). Un'iterazione di training esegue 5 epoche PPO.",
             "",
-            f"*{v['caption']} Video: [`docs/media/{v['mp4']}`](../media/{v['mp4']})"
-            + (f", evoluzione del training: [`docs/media/{v['evolution']}`](../media/{v['evolution']})"
-               if v.get("evolution") else "") + ".*",
-            "",
+            "| Versione ambiente | Iterazione | Epoche PPO | Video | Risultato |",
+            "|---|---:|---:|---|---|",
         ]
+        for v in videos:
+            link = f"[`{v['mp4']}`](../media/{v['mp4']})"
+            if v.get("evolution"):
+                link += f", [`{v['evolution']}`](../media/{v['evolution']})"
+            lines.append(
+                f"| `{v['env']}` | {v['iteration']} | {v['epochs']} | {link} | {v['caption']} |")
+        lines.append("")
+        for v in videos:
+            if not v.get("gif"):
+                continue
+            title = v.get("title") or v["caption"]
+            lines += [
+                f"### {title}",
+                "",
+                f'<a href="../media/{v["mp4"]}"><img src="img/{v["gif"]}" '
+                f'alt="{title.replace("`", "")}" width="480"></a>',
+                "",
+                f"*{v['caption']} Video: [`docs/media/{v['mp4']}`](../media/{v['mp4']}).*",
+                "",
+            ]
     lines += [
         "## Training compatibile con ArduPilot",
         "",
@@ -254,17 +275,20 @@ def index_page(robots: dict, status_text: dict, link_text: dict, repo_root: Path
         "",
         "## Configurazioni disponibili",
         "",
-        "| `NNM_ROBOT` | Foto | Robot | Classe | Giunti | Osservazione | Hz | Collegamento | Policy | Stato |",
-        "|---:|---|---|---|---:|---:|---:|---|---|---|",
+        "| `NNM_ROBOT` | Foto | Robot | Classe | Giunti | Osservazione | Hz | Collegamento | Policy | Risultato | Stato |",
+        "|---:|---|---|---|---:|---:|---:|---|---|---|---|",
     ]
     for rid, r in sorted(robots.items(), key=lambda kv: kv[1]["index"]):
         pol = ", ".join(f"`{p.name}`" for p in _policies_on_disk(repo_root, rid)) or "—"
+        latest = next((v for v in r.get("videos", []) if v.get("latest")), None)
+        result = (f"[`{latest['env']}` it. {latest['iteration']}]({rid}.md#risultati-per-versione-di-ambiente-ed-epoca)"
+                  if latest else "—")
         img = (f'<a href="{rid}.md"><img src="img/{rid}.jpg" alt="{r["display_name"]}" width="110"></a>'
                if (repo_root / "docs" / "robots" / "img" / f"{rid}.jpg").is_file() else "")
         lines.append(
             f"| {r['index']} | {img} | [{r['display_name']}]({rid}.md) | {CLASS_IT[r['class']]} | "
             f"{len(r['joint_names'])} | {_obs_dim(r)} | {r['rate_hz']} | {r['link']} | {pol} | "
-            f"{status_text[r['status']]} |")
+            f"{result} | {status_text[r['status']]} |")
     lines += ["", "Le foto vengono dai repository originali; fonte sotto l'immagine in ogni scheda."]
     lines += [
         "",
