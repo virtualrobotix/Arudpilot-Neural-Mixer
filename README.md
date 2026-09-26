@@ -126,6 +126,7 @@ change.
 | 6 | [Rex / SpotMicro](docs/robots/rex.md) | quadruped | 12 | 45 | — |
 | 7 | [Yertle](docs/robots/yertle.md) | quadruped | 12 | 45 | — |
 | 8 | [AlbertPro](docs/robots/albert.md) | quadruped | 8 | 33 | — |
+| 9 | [Open Duck Mini v2](docs/robots/openduck.md) | biped | 14 | 51 | — |
 
 Each robot page links the original repository, the model file, CAD and BOM, and lists joints, `q0`, servo
 outputs, the PPO architecture file (`robots/<id>/robot/ppo.yaml`) and the available policies.

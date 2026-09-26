@@ -13,11 +13,9 @@ from typing import Any
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ROBOTS_DIR = REPO_ROOT / "robots"
 
-BIPEDS = ("microduck", "microban", "zeroth", "bimo", "legolas", "upkie")
-QUADRUPEDS = ("rex", "yertle", "albert")
-ALL_ROBOTS = BIPEDS + QUADRUPEDS
-
-# Integer ids used by NNM_ROBOT (boot). Keep stable.
+# Position = NNM_ROBOT value and NNM_RobotId in AP_NNMixer_Policy.h: append only, never reorder.
+ALL_ROBOTS = ("microduck", "microban", "zeroth", "bimo", "legolas", "upkie", "rex", "yertle", "albert",
+              "openduck")
 ROBOT_INDEX = {name: i for i, name in enumerate(ALL_ROBOTS)}
 
 
@@ -66,9 +64,11 @@ def resolve_mjcf(robot_id: str, profile: dict[str, Any] | None = None) -> Path |
     local = robot_dir(robot_id) / "robot" / "scene.xml"
     if local.is_file():
         return local
-    rel = upstream(profile).get("sim_model")
+    u = upstream(profile)
+    rel = u.get("sim_model")
     if rel and str(rel).endswith(".xml"):
-        p = THIRD_PARTY / robot_id / rel
+        root = THIRD_PARTY / (f"{robot_id}_model" if u.get("model_repo") else robot_id)
+        p = root / rel
         if p.is_file():
             return p
     if robot_id == "microduck":

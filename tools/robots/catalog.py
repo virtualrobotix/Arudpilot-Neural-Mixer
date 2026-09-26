@@ -372,6 +372,55 @@ ROBOTS["albert"] = {
     ],
 }
 
+ROBOTS["openduck"] = {
+    "index": 9,
+    "class": "biped",
+    "display_name": "Open Duck Mini v2",
+    "maker": "Antoine Pirrone (apirrone) e comunità, supporto Hugging Face / Pollen Robotics",
+    "status": "needs-training-mjcf",
+    "joint_names": [
+        "left_hip_yaw", "left_hip_roll", "left_hip_pitch", "left_knee", "left_ankle",
+        "neck_pitch", "head_pitch", "head_yaw", "head_roll",
+        "right_hip_yaw", "right_hip_roll", "right_hip_pitch", "right_knee", "right_ankle",
+    ],
+    "q0": [0.002, 0.053, -0.63, 1.368, -0.784, 0.0, 0.0, 0.0, 0.0,
+           -0.003, -0.065, 0.635, 1.379, -0.796],
+    "extra_cmd_dim": 0,
+    "rate_hz": 50,
+    "command_ranges": {"vx": [-0.15, 0.15], "vy": [-0.2, 0.2], "wz": [-1.0, 1.0]},
+    "upstream": {
+        "repo": "https://github.com/apirrone/Open_Duck_Mini",
+        "branch": "v2",
+        "license": "Apache-2.0 (Open_Duck_Mini); Open_Duck_Playground senza licenza dichiarata",
+        "model_repo": "https://github.com/apirrone/Open_Duck_Playground",
+        "sim_model": "playground/open_duck_mini_v2/xmls/scene_flat_terrain.xml",
+        "cad": "Onshape https://cad.onshape.com/documents/64074dfcfa379b37d8a47762 e "
+               "https://github.com/apirrone/Open_Duck_Mini/tree/v2/print (guida di stampa)",
+        "bom": "https://tnkr.ai/explore/docs/open-duck-mini/open-duck-mini-v2 (guida di montaggio) e BOM "
+               "Google Sheets linkata nel README upstream (sotto 400 $)",
+        "training": "MuJoCo Playground (JAX / Brax PPO) con reference motion per imitazione, 50 Hz; "
+                    "modelli attuatore identificati con BAM",
+        "published_policy": "BEST_WALK_ONNX.onnx e BEST_WALK_ONNX_2.onnx nella radice del repo (MLP "
+                            "101-512-256-128-28, attivazione swish, uscita tanh, osservazione con fase e "
+                            "riferimenti di imitazione); non convertibili",
+    },
+    "sim": {"actuator": "position", "trunk_body": "base", "freejoint": "floating_base",
+            "gyro_sensor": "gyro", "accel_sensor": "accelerometer", "home_z": 0.15},
+    "servos": "14× Feetech STS3215 (bus seriale); runtime upstream su Raspberry Pi Zero 2W",
+    "link": "bus",
+    "policies": {},
+    "notes": [
+        "Stessi 14 giunti di MicroDuck, nello stesso ordine: stesso contratto di osservazione e di "
+        "azione, con q0 e dimensioni proprie (robot alto 42 cm).",
+        "La scena del Playground è MuJoCo nativa (attuatori di posizione STS3215, IMU sulla base): "
+        "fetch_upstream.py la usa così com'è.",
+        "Le policy pubblicate usano swish e tanh e un'osservazione di 101 valori con fase del passo: "
+        "AP_NNMixer esegue solo MLP ELU sul contratto NNMixer, quindi la policy va riaddestrata.",
+        "Il robot reale richiede il backend bus Feetech nel firmware (14 ≤ 16 funzioni servo, quindi "
+        "SITL e HIL funzionano come per MicroDuck).",
+    ],
+}
+
 STATUS_TEXT = {
     "policy": "policy int8 disponibile; la stessa rete in float32 è validata in SITL e HIL",
     "policy-upstream": "policy upstream convertita in int8; simulazione e training pronti",

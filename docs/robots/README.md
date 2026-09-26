@@ -19,6 +19,7 @@ Tutti i robot usano la stessa architettura PPO di MicroDuck (MLP 512-256-128 ELU
 | 6 | [Rex / SpotMicro](rex.md) | quadrupede | 12 | 45 | 50 | pwm | — | scena MuJoCo generata dall'URDF; policy da addestrare |
 | 7 | [Yertle](yertle.md) | quadrupede | 12 | 45 | 50 | pwm | — | scena MuJoCo generata dall'URDF; policy da addestrare |
 | 8 | [AlbertPro](albert.md) | quadrupede | 8 | 33 | 50 | pwm | — | scena MuJoCo nativa pronta; policy da addestrare |
+| 9 | [Open Duck Mini v2](openduck.md) | bipede | 14 | 51 | 50 | bus | — | scena MuJoCo nativa pronta; policy da addestrare |
 
 Collegamento: `bus` = servo su bus seriale: serve il backend bus nel firmware (non ancora scritto); `pwm` = servo PWM: collegabili alle uscite dell'autopilota; `can` = attuatori CAN-FD mjbots: serve un backend dedicato.
 
