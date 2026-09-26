@@ -125,6 +125,7 @@ dimensioni di ingresso e uscita.
 | 5 | [Upkie](docs/robots/upkie.md) | bipede a ruote | 6 | 27 | — |
 | 6 | [Rex / SpotMicro](docs/robots/rex.md) | quadrupede | 12 | 45 | — |
 | 7 | [Yertle](docs/robots/yertle.md) | quadrupede | 12 | 45 | — |
+| 8 | [AlbertPro](docs/robots/albert.md) | quadrupede | 8 | 33 | — |
 
 Ogni pagina linka il repo originale, il file del modello, CAD e BOM, ed elenca giunti, `q0`, uscite servo,
 il file di architettura PPO (`robots/<id>/robot/ppo.yaml`) e le policy disponibili.

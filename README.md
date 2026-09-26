@@ -125,6 +125,7 @@ change.
 | 5 | [Upkie](docs/robots/upkie.md) | wheeled biped | 6 | 27 | — |
 | 6 | [Rex / SpotMicro](docs/robots/rex.md) | quadruped | 12 | 45 | — |
 | 7 | [Yertle](docs/robots/yertle.md) | quadruped | 12 | 45 | — |
+| 8 | [AlbertPro](docs/robots/albert.md) | quadruped | 8 | 33 | — |
 
 Each robot page links the original repository, the model file, CAD and BOM, and lists joints, `q0`, servo
 outputs, the PPO architecture file (`robots/<id>/robot/ppo.yaml`) and the available policies.

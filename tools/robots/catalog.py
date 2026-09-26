@@ -333,10 +333,50 @@ ROBOTS: dict[str, dict] = {
     },
 }
 
+ROBOTS["albert"] = {
+    "index": 8,
+    "class": "quadruped",
+    "display_name": "AlbertPro",
+    "maker": "thinking0things",
+    "status": "needs-training-mjcf",
+    "joint_names": ["FL_hip", "FL_knee", "FR_hip", "FR_knee", "RL_hip", "RL_knee", "RR_hip", "RR_knee"],
+    "q0": [0.90, -1.40] * 4,
+    "extra_cmd_dim": 0,
+    "rate_hz": 50,
+    "command_ranges": {"vx": [-0.25, 0.25], "vy": [0.0, 0.0], "wz": [-0.8, 0.8]},
+    "upstream": {
+        "repo": "https://github.com/thinking0things/AlbertPro",
+        "license": "MIT",
+        "sim_model": "RL/dog.xml",
+        "cad": "https://github.com/thinking0things/AlbertPro/tree/main/hardware "
+               "(mesh STL per la simulazione in RL/meshes)",
+        "bom": "https://github.com/thinking0things/AlbertPro#robot (corpo 14 × 11 × 2 cm, 8 servo, "
+               "PCA9685, ESP32)",
+        "training": "PPO + GAE in MuJoCo (notebook in RL/), 100 Hz, azioni ΔΔθ su un buffer di delta",
+        "published_policy": "RL/models/ policy.h (MLP 24-64-8 ReLU/tanh, osservazione senza IMU, azioni "
+                            "ΔΔθ); non convertibile",
+    },
+    "sim": {"actuator": "position", "trunk_body": "trunk", "freejoint": "floating_base",
+            "gyro_sensor": "imu_gyro", "accel_sensor": "imu_acc", "home_z": 0.10},
+    "servos": "8 servo PWM tramite PCA9685 (I²C) su ESP32",
+    "link": "pwm",
+    "policies": {},
+    "notes": [
+        "La scena upstream è già MuJoCo nativa (attuatori di posizione kp 60, IMU sul tronco): "
+        "fetch_upstream.py la usa così com'è.",
+        "L'upstream gira a 100 Hz; il task AP_NNMixer arriva a 50 Hz, quindi si addestra a 50 Hz.",
+        "La policy upstream non vede l'IMU e comanda accelerazioni dei giunti (ΔΔθ): per l'autopilota "
+        "va riaddestrata sul contratto NNMixer (offset da q0).",
+        "I servo PWM si collegano direttamente alle uscite dell'autopilota (8 ≤ 16); manca ancora in "
+        "robot.bin la calibrazione per giunto.",
+    ],
+}
+
 STATUS_TEXT = {
     "policy": "policy int8 disponibile; la stessa rete in float32 è validata in SITL e HIL",
     "policy-upstream": "policy upstream convertita in int8; simulazione e training pronti",
     "needs-training": "scena MuJoCo generata dall'URDF; policy da addestrare",
+    "needs-training-mjcf": "scena MuJoCo nativa pronta; policy da addestrare",
     "needs-model": "manca una scena MuJoCo pronta per il training",
     "needs-firmware": "serve un tipo di azione per giunto nel firmware (ruote in velocità)",
 }

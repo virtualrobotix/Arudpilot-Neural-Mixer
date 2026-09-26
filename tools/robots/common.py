@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 ROBOTS_DIR = REPO_ROOT / "robots"
 
 BIPEDS = ("microduck", "microban", "zeroth", "bimo", "legolas", "upkie")
-QUADRUPEDS = ("rex", "yertle")
+QUADRUPEDS = ("rex", "yertle", "albert")
 ALL_ROBOTS = BIPEDS + QUADRUPEDS
 
 # Integer ids used by NNM_ROBOT (boot). Keep stable.
