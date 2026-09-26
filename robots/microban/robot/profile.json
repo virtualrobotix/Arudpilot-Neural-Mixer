@@ -67,6 +67,16 @@
     "bam_kp_fw": 125.0,
     "trunk_body": "trunk",
     "freejoint": "trunk_freejoint",
-    "home_z": 0.168
+    "home_z": 0.168,
+    "feet": [
+      {
+        "site": "left_foot",
+        "body": "foot_2"
+      },
+      {
+        "site": "right_foot",
+        "body": "foot"
+      }
+    ]
   }
 }

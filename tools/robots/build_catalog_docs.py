@@ -181,6 +181,17 @@ def robot_page(rid: str, r: dict, status_text: dict, link_text: dict, repo_root:
         lines.append("")
     else:
         lines += ["Nessuna policy ancora: va addestrata (sezione successiva).", ""]
+    for v in r.get("videos", []):
+        lines += [
+            f"### {v['title']}",
+            "",
+            f'<a href="../media/{v["mp4"]}"><img src="img/{v["gif"]}" alt="{v["title"].replace("`", "")}" width="480"></a>',
+            "",
+            f"*{v['caption']} Video: [`docs/media/{v['mp4']}`](../media/{v['mp4']})"
+            + (f", evoluzione del training: [`docs/media/{v['evolution']}`](../media/{v['evolution']})"
+               if v.get("evolution") else "") + ".*",
+            "",
+        ]
     lines += [
         "## Training compatibile con ArduPilot",
         "",

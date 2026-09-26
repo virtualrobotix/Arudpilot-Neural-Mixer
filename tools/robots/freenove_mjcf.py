@@ -8,6 +8,7 @@
     python tools/robots/freenove_mjcf.py            # writes robots/freenove/robot/freenove.xml and checks it
     python tools/robots/freenove_mjcf.py --render /tmp/freenove.png
     python tools/robots/freenove_mjcf.py --gait --video /tmp/freenove_gait.mp4   # upstream gait on the model
+    mjpython tools/robots/freenove_mjcf.py --view                                # interactive viewer, walking
 
 Upstream publishes no URDF, MJCF or 3D CAD. Geometry comes from the kinematic model the robot
 runs (Code/Server/Control.py of Freenove_Robot_Dog_Kit_for_Raspberry_Pi):
@@ -381,6 +382,50 @@ def run_upstream_gait(path: Path, seconds: float = 6.0, speed: int = 8, video: P
     print("upstream gait on the model: " + "; ".join(report))
 
 
+def view(path: Path, speed: int = 8, cycles: int = 6) -> None:
+    """Interactive viewer (run with mjpython on macOS): stand, then the upstream gait in real time, forward and
+    turn in turns, until the window is closed."""
+    import time
+
+    import mujoco
+    import mujoco.viewer
+
+    m = mujoco.MjModel.from_xml_path(str(path))
+    d = mujoco.MjData(m)
+    mujoco.mj_resetDataKeyframe(m, d, 0)
+    act = {m.actuator(a).name: a for a in range(m.nu)}
+    sub = int(round(GAIT_STEP_S / m.opt.timestep))
+    with mujoco.viewer.launch_passive(m, d) as v:
+        v.cam.type = mujoco.mjtCamera.mjCAMERA_TRACKING
+        v.cam.trackbodyid = m.body("trunk").id
+        v.cam.distance, v.cam.azimuth, v.cam.elevation = 0.45, 135.0, -20.0
+
+        def advance(n_steps: int) -> bool:
+            for _ in range(n_steps):
+                t0 = time.perf_counter()
+                for _ in range(sub):
+                    mujoco.mj_step(m, d)
+                v.sync()
+                if not v.is_running():
+                    return False
+                time.sleep(max(0.0, GAIT_STEP_S - (time.perf_counter() - t0)))
+            return True
+
+        if not advance(int(1.0 / GAIT_STEP_S)):
+            return
+        while v.is_running():
+            for move in ("forward", "turn"):
+                for _ in range(cycles):
+                    angles = range(90, 451, speed) if move == "forward" else range(0, 361, speed)
+                    for i in angles:
+                        for leg, (x, y, z) in zip(FREENOVE_LEG, freenove_points(move, i)):
+                            q = freenove_ik(x * 1e-3, y * 1e-3, z * 1e-3)
+                            for j, val in zip(("hip_roll", "hip_pitch", "knee"), q):
+                                d.ctrl[act[f"{leg}_{j}"]] = val
+                        if not advance(1):
+                            return
+
+
 def render(path: Path, out: Path, camera: str) -> None:
     import mujoco
     from PIL import Image
@@ -402,6 +447,7 @@ def main() -> None:
     ap.add_argument("--camera", default="track")
     ap.add_argument("--gait", action="store_true", help="replay the upstream open-loop gait (forward, turn)")
     ap.add_argument("--video", type=Path, help="mp4 of the upstream gait")
+    ap.add_argument("--view", action="store_true", help="interactive viewer with the upstream gait (mjpython)")
     args = ap.parse_args()
     args.out.write_text(build_xml())
     print(f"wrote {args.out} (stand q0 {[round(v, 4) for v in stand_q0()]}, home_z {home_z()})")
@@ -410,6 +456,8 @@ def main() -> None:
         render(args.out, args.render, args.camera)
     if args.gait or args.video:
         run_upstream_gait(args.out, video=args.video)
+    if args.view:
+        view(args.out)
 
 
 if __name__ == "__main__":

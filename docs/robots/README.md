@@ -11,7 +11,7 @@ Tutti i robot usano la stessa architettura PPO di MicroDuck (MLP 512-256-128 ELU
 | `NNM_ROBOT` | Foto | Robot | Classe | Giunti | Osservazione | Hz | Collegamento | Policy | Stato |
 |---:|---|---|---|---:|---:|---:|---|---|---|
 | 0 | <a href="microduck.md"><img src="img/microduck.jpg" alt="MicroDuck" width="110"></a> | [MicroDuck](microduck.md) | bipede | 14 | 61 | 50 | bus | `walk.nnm` | policy int8 disponibile; la stessa rete in float32 è validata in SITL e HIL |
-| 1 | <a href="microban.md"><img src="img/microban.jpg" alt="Microban" width="110"></a> | [Microban](microban.md) | bipede | 18 | 63 | 50 | bus | `walk.nnm` | policy upstream convertita in int8; simulazione e training pronti |
+| 1 | <a href="microban.md"><img src="img/microban.jpg" alt="Microban" width="110"></a> | [Microban](microban.md) | bipede | 18 | 63 | 50 | bus | `walk.nnm`, `walk_md.nnm` | policy upstream convertita in int8; simulazione e training pronti |
 | 2 | <a href="zeroth.md"><img src="img/zeroth.jpg" alt="Zeroth-01" width="110"></a> | [Zeroth-01](zeroth.md) | bipede | 20 | 69 | 50 | bus | — | manca una scena MuJoCo pronta per il training |
 | 3 | <a href="bimo.md"><img src="img/bimo.jpg" alt="Bimo" width="110"></a> | [Bimo](bimo.md) | bipede | 8 | 33 | 25 | bus | — | manca una scena MuJoCo pronta per il training |
 | 4 | <a href="legolas.md"><img src="img/legolas.jpg" alt="Legolas" width="110"></a> | [Legolas](legolas.md) | bipede | 10 | 39 | 50 | pwm | — | manca una scena MuJoCo pronta per il training |

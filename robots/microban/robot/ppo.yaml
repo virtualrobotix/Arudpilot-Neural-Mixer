@@ -51,10 +51,10 @@ env:
     wz:
     - -1.0
     - 1.0
-  p_zero_command: 0.2
+  p_zero_command: 0.02
   p_no_lateral: 0.3
   episode_s: 20.0
-  fall_tilt_deg: 60.0
+  fall_tilt_deg: 70.0
   gyro_noise: 0.02
   accel_noise: 0.05
   obs_delay_steps_max: 1
@@ -63,4 +63,78 @@ env:
     track_ang_vel: 2.0
     upright: 2.0
     pose: 1.0
-    action_rate: -0.8
+    action_rate: -0.1
+    tracking_sigma: 0.1
+    tracking_sigma_ang: 0.5
+    upright_std: 0.2236
+    walking_threshold: 0.01
+    pose_std_standing:
+      .*hip_yaw.*: 0.1
+      .*hip_roll.*: 0.05
+      .*hip_pitch.*: 0.15
+      .*knee.*: 0.15
+      .*ankle.*: 0.1
+      .*shoulder.*: 0.2
+      .*elbow.*: 0.2
+    pose_std_walking:
+      .*hip_yaw.*: 0.3
+      .*hip_roll.*: 0.05
+      .*hip_pitch.*: 0.4
+      .*knee.*: 0.4
+      .*ankle.*: 0.25
+      .*shoulder.*: 0.5
+      .*elbow.*: 0.5
+    alive: 0.0
+    body_ang_vel: -0.05
+    angular_momentum: -0.02
+    dof_pos_limits: -1.0
+    self_collisions: -1.0
+    air_time: 3.0
+    air_time_mode: in_range
+    air_time_min_s: 0.125
+    air_time_max_s: 0.3
+    foot_clearance: -2.0
+    foot_swing_height: -0.25
+    swing_height_m: 0.03
+    foot_slip: -0.1
+    single_stance: 1.0
+    foot_lift: 1.0
+    foot_alternation: 0.3
+    alternation_min_air_s: 0.1
+    alternation_min_height_frac: 0.5
+    foot_symmetry: -0.1
+  resample_s:
+  - 3.0
+  - 8.0
+  push:
+    interval_s:
+    - 3.0
+    - 6.0
+    vel_xy: 0.15
+  curriculum:
+    action_rate_stages:
+    - - 0
+      - -0.1
+    - - 12000
+      - -0.2
+    - - 18000
+      - -0.4
+    - - 24000
+      - -0.6
+    - - 30000
+      - -0.8
+    - - 36000
+      - -1.0
+    standing_stages:
+    - - 0
+      - 0.02
+    - - 12000
+      - 0.05
+    - - 18000
+      - 0.1
+    - - 24000
+      - 0.15
+    - - 36000
+      - 0.2
+    - - 48000
+      - 0.25

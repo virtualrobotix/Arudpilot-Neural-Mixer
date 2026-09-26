@@ -2,3 +2,6 @@
 -r requirements.txt
 torch>=2.3
 pytest>=8
+wandb>=0.18
+matplotlib>=3.8
+tensorboard>=2.16

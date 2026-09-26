@@ -1,0 +1,25 @@
+{
+  "policy": "walk_ap.nnm",
+  "eval": {
+    "stand": {
+      "mean_return": 34.40821838378906,
+      "std_return": 0.2065705806016922,
+      "mean_upright": 0.9260379741589229,
+      "survival": 1.0,
+      "mean_vx": 0.0016871730873562966,
+      "command_vx": 0.0,
+      "n_episodes": 8,
+      "horizon_steps": 300
+    },
+    "walk_0.3": {
+      "mean_return": 25.336441040039062,
+      "std_return": 0.0766758844256401,
+      "mean_upright": 0.947229839861393,
+      "survival": 1.0,
+      "mean_vx": 0.004428480984799069,
+      "command_vx": 0.3,
+      "n_episodes": 8,
+      "horizon_steps": 300
+    }
+  }
+}

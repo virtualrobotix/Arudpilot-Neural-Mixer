@@ -64,3 +64,5 @@ env:
     upright: 2.0
     pose: 1.0
     action_rate: -0.8
+    tracking_sigma: 0.05
+    tracking_sigma_ang: 0.25

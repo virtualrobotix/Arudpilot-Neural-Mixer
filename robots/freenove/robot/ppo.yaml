@@ -13,7 +13,7 @@ network:
   - 256
   - 128
   activation: elu
-  init_noise_std: 1.0
+  init_noise_std: 0.3
   obs_normalization: true
 quantization:
   weights: int8_per_row
@@ -51,16 +51,99 @@ env:
     wz:
     - -0.8
     - 0.8
-  p_zero_command: 0.2
-  p_no_lateral: 0.3
+  p_zero_command: 0.02
+  p_no_lateral: 0.1
   episode_s: 20.0
   fall_tilt_deg: 60.0
   gyro_noise: 0.02
   accel_noise: 0.05
   obs_delay_steps_max: 1
   reward:
-    track_lin_vel: 2.0
-    track_ang_vel: 2.0
-    upright: 2.0
-    pose: 1.0
-    action_rate: -0.8
+    track_lin_vel: 3.0
+    track_ang_vel: 3.0
+    upright: 1.0
+    pose: 0.5
+    action_rate: -0.1
+    tracking_sigma: 0.005
+    tracking_sigma_ang: 0.05
+    tracking_filter_s: 0.25
+    upright_std: 0.2236
+    walking_threshold: 0.01
+    pose_std_standing:
+      .*hip_roll: 0.05
+      .*hip_pitch: 0.1
+      .*knee: 0.1
+    pose_std_walking:
+      .*hip_roll: 0.15
+      .*hip_pitch: 0.4
+      .*knee: 0.4
+    alive: 0.0
+    body_ang_vel: -0.05
+    dof_pos_limits: -1.0
+    self_collisions: -1.0
+    air_time: 10.0
+    air_time_mode: touchdown
+    air_time_min_s: 0.05
+    air_time_max_s: 0.3
+    foot_clearance: -2.0
+    foot_swing_height: -0.25
+    swing_height_m: 0.015
+    foot_slip: -0.1
+    trot: 1.0
+    joint_torque: -0.05
+  resample_s:
+  - 3.0
+  - 8.0
+  push:
+    interval_s:
+    - 4.0
+    - 8.0
+    vel_xy: 0.05
+  curriculum:
+    action_rate_stages:
+    - - 0
+      - -0.1
+    - - 12000
+      - -0.2
+    - - 18000
+      - -0.4
+    - - 24000
+      - -0.6
+    - - 30000
+      - -0.8
+    - - 36000
+      - -1.0
+    standing_stages:
+    - - 0
+      - 0.02
+    - - 12000
+      - 0.05
+    - - 18000
+      - 0.1
+    - - 24000
+      - 0.15
+    - - 36000
+      - 0.2
+    - - 48000
+      - 0.25
+  eval_modes:
+    stand:
+    - 0.0
+    - 0.0
+    - 0.0
+    forward_0.15:
+    - 0.15
+    - 0.0
+    - 0.0
+    backward_0.15:
+    - -0.15
+    - 0.0
+    - 0.0
+    lateral_0.1:
+    - 0.0
+    - 0.1
+    - 0.0
+    turn_0.6:
+    - 0.0
+    - 0.0
+    - 0.6

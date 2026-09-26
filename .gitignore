@@ -20,3 +20,8 @@ third_party/
 robots/*/robot/scene.xml
 # upstream policies are downloaded by fetch_upstream.py; the converted .nnm stays in the repo
 robots/microban/policies/walk.onnx
+# Weights & Biases local run cache
+wandb/
+# intermediate training checkpoints; logs, reports, best/ and final .nnm are versioned
+robots/*/policies/*_run/*_it[0-9][0-9][0-9][0-9].nnm
+robots/*/policies/*_run/*.pt

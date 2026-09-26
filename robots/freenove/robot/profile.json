@@ -55,6 +55,34 @@
     "freejoint": "floating_base",
     "gyro_sensor": "imu_gyro",
     "accel_sensor": "imu_acc",
-    "home_z": 0.1014
+    "home_z": 0.1014,
+    "feet": [
+      {
+        "site": "FL_foot",
+        "body": "FL_shank"
+      },
+      {
+        "site": "FR_foot",
+        "body": "FR_shank"
+      },
+      {
+        "site": "RL_foot",
+        "body": "RL_shank"
+      },
+      {
+        "site": "RR_foot",
+        "body": "RR_shank"
+      }
+    ],
+    "trot_pairs": [
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        2
+      ]
+    ]
   }
 }

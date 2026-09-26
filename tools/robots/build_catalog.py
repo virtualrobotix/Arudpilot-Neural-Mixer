@@ -59,19 +59,20 @@ def ppo_for(rid: str, r: dict) -> dict:
         "robot_id": rid,
         "network": {
             "actor_hidden": list(MLP_HIDDEN), "critic_hidden": list(MLP_HIDDEN), "activation": "elu",
-            "init_noise_std": 1.0, "obs_normalization": True,
+            "init_noise_std": r.get("init_noise_std", 1.0), "obs_normalization": True,
         },
         "quantization": {"weights": "int8_per_row", "qat": True, "activations": "float32"},
         "ppo": dict(PPO_DEFAULTS),
-        "env": {
+        "env": {**{
             "policy_hz": r["rate_hz"], "loop_hz": 200, "gravity_source": "ap_imu_filter",
             "att_tau": 0.5, "act_max": 2.0, "pwm_quantization": True,
             "command_ranges": r["command_ranges"],
             "p_zero_command": 0.2, "p_no_lateral": 0.3, "episode_s": 20.0, "fall_tilt_deg": 60.0,
             "gyro_noise": 0.02, "accel_noise": 0.05, "obs_delay_steps_max": 1,
-            "reward": {"track_lin_vel": 2.0, "track_ang_vel": 2.0, "upright": 2.0, "pose": 1.0,
-                       "action_rate": -0.8},
-        },
+            "reward": {**{"track_lin_vel": 2.0, "track_ang_vel": 2.0, "upright": 2.0, "pose": 1.0,
+                          "action_rate": -0.8, "tracking_sigma": 0.05, "tracking_sigma_ang": 0.25},
+                       **r.get("reward", {})},
+        }, **r.get("env", {})},
     }
 
 

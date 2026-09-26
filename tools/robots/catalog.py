@@ -97,14 +97,72 @@ ROBOTS: dict[str, dict] = {
         # the MJCF imu site is rotated w.r.t. the trunk; the env adds an IMU aligned with the trunk,
         # which is what the autopilot reports once AHRS_ORIENTATION matches its mounting
         "sim": {"actuator": "bam_xl330", "bam_kp_fw": 125.0, "trunk_body": "trunk",
-                "freejoint": "trunk_freejoint", "home_z": 0.168},
+                "freejoint": "trunk_freejoint", "home_z": 0.168,
+                "feet": [{"site": "left_foot", "body": "foot_2"}, {"site": "right_foot", "body": "foot"}]},
+        # gait terms as in the MicroDuck mjlab task; upright/pose lowered after a run that learned to stand still
+        # alive keeps the per-step reward positive from iteration 0: without it a random policy learns to
+        # end episodes early by falling (action_rate outweighs the other terms)
+        # MicroDuck mjlab velocity task (params/env.yaml of W&B run mjlab_microduck/vfaof1ds), same terms,
+        # shapes and weights; swing target raised from 0.02 m to 0.03 m for the taller robot, arm posture
+        # std added (MicroDuck has no arms)
+        "reward": {
+            "track_lin_vel": 2.0, "tracking_sigma": 0.1,            # std 0.316
+            "track_ang_vel": 2.0, "tracking_sigma_ang": 0.5,        # std 0.707
+            "upright": 2.0, "upright_std": 0.2236,
+            "pose": 1.0, "walking_threshold": 0.01,
+            "pose_std_standing": {".*hip_yaw.*": 0.1, ".*hip_roll.*": 0.05, ".*hip_pitch.*": 0.15,
+                                  ".*knee.*": 0.15, ".*ankle.*": 0.1, ".*shoulder.*": 0.2, ".*elbow.*": 0.2},
+            "pose_std_walking": {".*hip_yaw.*": 0.3, ".*hip_roll.*": 0.05, ".*hip_pitch.*": 0.4,
+                                 ".*knee.*": 0.4, ".*ankle.*": 0.25, ".*shoulder.*": 0.5, ".*elbow.*": 0.5},
+            "action_rate": -0.1, "alive": 0.0,
+            "body_ang_vel": -0.05, "angular_momentum": -0.02, "dof_pos_limits": -1.0, "self_collisions": -1.0,
+            "air_time": 3.0, "air_time_mode": "in_range", "air_time_min_s": 0.125, "air_time_max_s": 0.3,
+            "foot_clearance": -2.0, "foot_swing_height": -0.25, "swing_height_m": 0.03, "foot_slip": -0.1,
+            # added after the aligned run stood still with feet on the ground at iteration 300 (MicroDuck
+            # was already stepping there): reward single stance while moving
+            "single_stance": 1.0,
+            "foot_lift": 1.0,       # lifting the swing foot during a step, up to swing_height_m
+            # iteration 400 stepped with one foot only: reward left/right alternation per touchdown
+            "foot_alternation": 0.3,
+            # iteration 1000 alternated but the right foot only shuffled (1 cm, 0.13 s vs 5 cm, 0.29 s):
+            # a step needs >= 0.1 s airborne and half the swing height, and both feet must match
+            "alternation_min_air_s": 0.1, "alternation_min_height_frac": 0.5,
+            "foot_symmetry": -0.1,
+
+        },
+        "env": {
+            "fall_tilt_deg": 70.0, "resample_s": [3.0, 8.0], "p_zero_command": 0.02,
+            "push": {"interval_s": [3.0, 6.0], "vel_xy": 0.15},
+            "curriculum": {
+                "action_rate_stages": [[0, -0.1], [12000, -0.2], [18000, -0.4], [24000, -0.6],
+                                       [30000, -0.8], [36000, -1.0]],
+                "standing_stages": [[0, 0.02], [12000, 0.05], [18000, 0.1], [24000, 0.15],
+                                    [36000, 0.2], [48000, 0.25]],
+            },
+        },
+        "init_noise_std": 1.0,
         "servos": "19× Dynamixel XL330-M288-T (bus); la testa non è comandata dalla policy",
         "link": "bus",
         "policies": {"walk.nnm": "walk.onnx pubblicato da Rhoban (MLP 63-512-256-128-18, stesso contratto "
                                  "NNMixer) convertito in int8 per riga. Nell'ambiente a contratto: in piedi 10 s, "
                                  "avanti cade a 6,8 s, rotazione cade a 1 s. Con la gravità esatta del "
                                  "simulatore regge 10 s in avanti: la policy è stata addestrata senza il filtro "
-                                 "IMU dell'autopilota. Da rifinire con --init-onnx prima dell'uso."},
+                                 "IMU dell'autopilota. Da rifinire con --init-onnx prima dell'uso.",
+                     "walk_md.nnm": "addestrata da zero sul contratto ArduPilot in int8 (QAT): reward e curriculum "
+                                    "del task MicroDuck più premi sul passo (appoggio singolo, piede sollevato, "
+                                    "alternanza, simmetria), 512 env × 3000 iterazioni, checkpoint 2700 (punteggio "
+                                    "0,64). Sopravvivenza 100% in tutte le modalità; avanti/indietro ~0,16-0,19 m/s "
+                                    "a comando 0,3; rotazione 0,68-0,87 rad/s a comando 0,8; laterale 0,04 m/s a "
+                                    "comando 0,2; passo alternato e simmetrico (3-4 cm, 0,27-0,29 s per piede). "
+                                    "W&B mjlab_microban/h5e7djou."},
+        "videos": [{
+            "title": "Risultato dopo 3000 iterazioni (`walk_md.nnm`)",
+            "gif": "microban_walk_md.gif",
+            "mp4": "microban_walk_md_it3000.mp4",
+            "evolution": "microban_md_evolution.mp4",
+            "caption": "MuJoCo, policy int8 sul contratto ArduPilot: avanti 5 s a 0,3 m/s, destra 3 s, "
+                       "180° a sinistra, avanti 5 s. Nessuna caduta in 16,7 s, 2,4 m percorsi.",
+        }],
         "notes": [
             "L'osservazione dell'ONNX è gyro, gravità proiettata, q−q0, q̇, azione precedente, twist: il formato "
             "NNMixer con 18 giunti, quindi la policy pubblicata si converte senza riaddestrarla.",
@@ -459,7 +517,58 @@ ROBOTS["freenove"] = {
     },
     "sim": {"actuator": "position", "mjcf": "freenove.xml", "trunk_body": "trunk",
             "freejoint": "floating_base", "gyro_sensor": "imu_gyro", "accel_sensor": "imu_acc",
-            "home_z": 0.1014},
+            "home_z": 0.1014,
+            "feet": [{"site": f"{leg}_foot", "body": f"{leg}_shank"} for leg in ("FL", "FR", "RL", "RR")],
+            "trot_pairs": [[0, 3], [1, 2]]},                  # FL+RR, FR+RL
+    # Quadruped version of the MicroDuck / Microban velocity task (mjlab Go1 terms), scaled to a 0.55 kg
+    # robot with 10 cm legs and 0.17 N.m servos:
+    # - tracking std 0.12 m/s and 0.4 rad/s: half the commanded range, as Go1 (std 0.5 on +/-1 m/s); the
+    #   Microban 0.32 m/s would pay 75% of the reward for standing still at 0.15 m/s
+    # - trot on the diagonal pairs instead of the biped single stance / alternation terms
+    # - air time 0.05-0.3 s per foot and a 15 mm swing height: the upstream gait lifts 6 mm on a 0.7 s cycle
+    # - posture std per joint type; abduction kept tight, it only steers lateral steps
+    # - servo torque penalty: two legs in stance already load the knees to 2/3 of stall
+    # - upright weight lowered: four feet keep the trunk level by themselves
+    # Run walk (iterations 0-370) with in-range air time 0.05-0.3 s (weight 1.5), tracking std 0.12 m/s and
+    # body_ang_vel -0.05 stood still and vibrated its feet: air time reached 3.1 per second, the largest term,
+    # tracking stayed at 0.2 and roll/pitch rates near 2 rad/s. Air time is now paid at touchdown
+    # (legged_gym: min(air, max) - min, negative for hops under 0.05 s). body_ang_vel -0.2 made every early
+    # episode negative (-0.13 per second while flailing) and the policy learned to fall sooner: kept at -0.05.
+    # Tracking uses the base twist low-passed over 0.25 s: on the instantaneous twist the upstream gait at the
+    # right mean speed scored less than standing still. Checked on the model at 0.05 and 0.15 m/s: upstream
+    # gait > standing > the vibrating policy of iteration 300.
+    "reward": {
+        # walk_v2 stood still for 300 iterations: its velocity error (0.129 m/s) was the error of standing
+        # still over the command distribution (0.128). Tighter tracking (std 0.07 m/s, 0.22 rad/s) on the
+        # filtered twist leaves standing almost nothing at 0.15 m/s (0.16 of 15 per episode).
+        "track_lin_vel": 3.0, "tracking_sigma": 0.005, "tracking_filter_s": 0.25,
+        "track_ang_vel": 3.0, "tracking_sigma_ang": 0.05,
+        "upright": 1.0, "upright_std": 0.2236,
+        "pose": 0.5, "walking_threshold": 0.01,
+        "pose_std_standing": {".*hip_roll": 0.05, ".*hip_pitch": 0.1, ".*knee": 0.1},
+        "pose_std_walking": {".*hip_roll": 0.15, ".*hip_pitch": 0.4, ".*knee": 0.4},
+        "action_rate": -0.1, "alive": 0.0,
+        "body_ang_vel": -0.05, "dof_pos_limits": -1.0, "self_collisions": -1.0,
+        "air_time": 10.0, "air_time_mode": "touchdown", "air_time_min_s": 0.05, "air_time_max_s": 0.3,
+        "foot_clearance": -2.0, "foot_swing_height": -0.25, "swing_height_m": 0.015, "foot_slip": -0.1,
+        "trot": 1.0,
+        "joint_torque": -0.05,
+    },
+    "env": {
+        "resample_s": [3.0, 8.0], "p_zero_command": 0.02, "p_no_lateral": 0.1,
+        "push": {"interval_s": [4.0, 8.0], "vel_xy": 0.05},
+        "curriculum": {
+            "action_rate_stages": [[0, -0.1], [12000, -0.2], [18000, -0.4], [24000, -0.6],
+                                   [30000, -0.8], [36000, -1.0]],
+            "standing_stages": [[0, 0.02], [12000, 0.05], [18000, 0.1], [24000, 0.15],
+                                [36000, 0.2], [48000, 0.25]],
+        },
+        "eval_modes": {"stand": [0.0, 0.0, 0.0], "forward_0.15": [0.15, 0.0, 0.0],
+                       "backward_0.15": [-0.15, 0.0, 0.0], "lateral_0.1": [0.0, 0.1, 0.0],
+                       "turn_0.6": [0.0, 0.0, 0.6]},
+    },
+    # actions are raw radians around q0 (servo range +/-1.26 rad): std 1.0 would throw the legs to the limits
+    "init_noise_std": 0.3,
     "servos": "12× EMAX ES08MA II (12 g, analogici, 1,6 kgf·cm a 4,8 V) su PCA9685 0x40 a 50 Hz; "
               "Raspberry Pi, IMU MPU6050",
     "link": "pwm",
