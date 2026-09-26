@@ -1,24 +1,25 @@
 {
   "robot_id": "microduck",
+  "nnm_robot": 0,
   "class": "biped",
-  "display_name": "MicroDuck (Pollen / Hugging Face)",
+  "display_name": "MicroDuck",
   "n_joints": 14,
   "obs_dim": 61,
   "rate_hz": 50,
   "q0": [
     0.0,
-    -0.087,
-    -0.458,
-    -0.005,
+    -0.0873,
+    -0.4579,
+    -0.0049,
     0.453,
-    0.349,
-    0.349,
+    0.3491,
+    0.3491,
     0.0,
     0.0,
     0.0,
-    0.087,
-    0.458,
-    0.005,
+    0.0873,
+    0.4579,
+    0.0049,
     -0.453
   ],
   "joint_names": [
@@ -38,17 +39,24 @@
     "right_ankle"
   ],
   "servo_fn0": 94,
-  "obs_layout": {
-    "gyro_flu": 3,
-    "gravity_flu": 3,
-    "q_minus_q0": "n_joints",
-    "qd": "n_joints",
-    "prev_action": "n_joints",
-    "twist_vx_vy_wz": 3,
-    "head_cmd": "optional",
-    "body_cmd": "optional"
+  "servos": "14× Dynamixel XL330 (bus)",
+  "link": "bus",
+  "status": "policy",
+  "upstream": {
+    "repo": "https://github.com/pollen-robotics/microduck_rl",
+    "license": "vedi upstream",
+    "sim_model": "src/mjlab_microduck/robot/microduck/scene.xml",
+    "cad": "https://huggingface.co/spaces/pollen-robotics/microduck-simulator",
+    "bom": "https://huggingface.co/spaces/pollen-robotics/microduck-simulator",
+    "training": "mjlab 1.3.0 + rsl_rl PPO (MuJoCo Warp)",
+    "published_policy": "addestrata nel laboratorio NOESIS EXPERIMENT; ONNX in policies/ di questo repo"
   },
-  "upstream": "https://github.com/pollen-robotics/microduck_rl",
-  "status": "integrated",
-  "mjcf": "third_party/microduck_rl/.../scene.xml"
+  "sim": {
+    "actuator": "bam_xl330",
+    "trunk_body": "trunk_base",
+    "freejoint": "trunk_base_freejoint",
+    "gyro_sensor": "imu_ang_vel",
+    "accel_sensor": "imu_accel",
+    "home_z": 0.125
+  }
 }

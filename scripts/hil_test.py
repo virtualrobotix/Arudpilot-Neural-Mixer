@@ -207,7 +207,9 @@ def main() -> None:
         logs = sorted(glob.glob(os.path.join(args.log_dir, "*.BIN")), key=os.path.getmtime)
         if logs:
             here = Path(__file__).resolve().parents[1]
-            onnx = args.onnx or str(here / "policies" / "microduck_mlp_2048x2000_it1999.onnx")
+            # compare against what the firmware ran: the SD policy when SITL has one, else the baked MLP
+            sd = here / "sitl" / "run" / "APM" / "nnm" / "microduck" / "policies" / "walk.nnm"
+            onnx = args.onnx or str(sd if sd.is_file() else here / "policies" / "microduck_mlp_2048x2000_it1999.onnx")
             link.pump(1.0, quiet=True)  # let the logger flush
             out = subprocess.run([sys.executable, str(here / "tools" / "log_parity.py"), logs[-1], onnx],
                                  capture_output=True, text=True)

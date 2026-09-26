@@ -110,6 +110,10 @@ class Demo:
 
     def start_sitl(self):
         RUN_DIR.mkdir(parents=True, exist_ok=True)
+        # SITL's filesystem root is its working directory: this is the microSD seen by AP_NNMixer
+        sd = ROOT / "sitl" / "APM" / "nnm"
+        if sd.is_dir():
+            shutil.copytree(sd, RUN_DIR / "APM" / "nnm", dirs_exist_ok=True)
         cmd = [str(ARDUROVER), "--model", "JSON:127.0.0.1", "--speedup", "1", "--slave", "0",
                "--defaults", str(PARM), "--sim-address=127.0.0.1", "-I0",
                "--home", "-35.363261,149.165230,584,353"]

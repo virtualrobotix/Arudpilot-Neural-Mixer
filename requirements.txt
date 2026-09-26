@@ -14,3 +14,5 @@ future
 intelhex
 setuptools
 pytest>=8
+# robot catalog and PPO configs (tools/robots)
+pyyaml>=6

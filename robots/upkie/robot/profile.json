@@ -1,24 +1,43 @@
 {
   "robot_id": "upkie",
+  "nnm_robot": 5,
   "class": "biped",
   "display_name": "Upkie (wheeled biped)",
-  "n_joints": 0,
-  "obs_dim": 0,
+  "n_joints": 6,
+  "obs_dim": 27,
   "rate_hz": 50,
-  "q0": [],
-  "joint_names": [],
+  "q0": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "joint_names": [
+    "left_hip",
+    "left_knee",
+    "left_wheel",
+    "right_hip",
+    "right_knee",
+    "right_wheel"
+  ],
   "servo_fn0": 94,
-  "obs_layout": {
-    "gyro_flu": 3,
-    "gravity_flu": 3,
-    "q_minus_q0": "n_joints",
-    "qd": "n_joints",
-    "prev_action": "n_joints",
-    "twist_vx_vy_wz": 3,
-    "head_cmd": "optional",
-    "body_cmd": "optional"
+  "servos": "4× mjbots qdd100 (anche, ginocchia), 2× moteus + mj5208 (ruote), CAN-FD",
+  "link": "can",
+  "status": "needs-firmware",
+  "upstream": {
+    "repo": "https://github.com/upkie/upkie",
+    "license": "Apache-2.0",
+    "model_repo": "https://github.com/MarcDcls/mjlab_upkie",
+    "sim_model": "src/mjlab_upkie/robot/upkie/scene.xml",
+    "cad": "https://github.com/upkie/upkie_parts (FreeCAD, STL, 3MF)",
+    "bom": "https://upkie.github.io/upkie/build-your-own.html",
+    "training": "mjlab 1.3.0 + rsl_rl (MarcDcls/mjlab_upkie)",
+    "published_policy": "MarcDcls/mjlab_upkie logs/rsl_rl/upkie_velocity/bests/default.onnx (osservazione con quaternione del tronco, ruote in velocità); non convertibile"
   },
-  "upstream": "https://github.com/upkie/upkie",
-  "status": "needs-mjcf",
-  "mjcf": "robot/scene.xml"
+  "sim": {
+    "actuator": "position",
+    "home_z": 0.343
+  }
 }

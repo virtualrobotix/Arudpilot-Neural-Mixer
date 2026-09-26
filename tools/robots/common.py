@@ -37,25 +37,45 @@ def load_profile(robot_id: str) -> dict[str, Any]:
     return data
 
 
+THIRD_PARTY = REPO_ROOT / "third_party"
+
+
+def upstream(profile: dict[str, Any]) -> dict[str, Any]:
+    u = profile.get("upstream", {})
+    return {"repo": u} if isinstance(u, str) else dict(u)
+
+
 def resolve_mjcf(robot_id: str, profile: dict[str, Any] | None = None) -> Path | None:
-    """Return a local MJCF path if present; MicroDuck may use NNMIXER_MJCF env."""
+    """MJCF used for simulation and training, first match wins:
+
+    1. env NNMIXER_MJCF_<ID> (NNMIXER_MJCF also accepted for microduck)
+    2. robots/<id>/robot/scene.xml (converted or hand-made scene)
+    3. third_party/<id>/<upstream.sim_model> fetched by tools/robots/fetch_upstream.py
+    """
     import os
 
+    profile = profile or load_profile(robot_id)
+    keys = [f"NNMIXER_MJCF_{robot_id.upper()}"]
     if robot_id == "microduck":
-        env = os.environ.get("NNMIXER_MJCF") or os.environ.get("MICRODUCK_MJCF")
+        keys += ["NNMIXER_MJCF", "MICRODUCK_MJCF"]
+    for k in keys:
+        env = os.environ.get(k)
         if env:
             p = Path(env)
             return p if p.is_file() else None
-    profile = profile or load_profile(robot_id)
     local = robot_dir(robot_id) / "robot" / "scene.xml"
     if local.is_file():
         return local
-    # optional path recorded in profile
-    rel = profile.get("mjcf")
-    if rel and not str(rel).startswith("third_party"):
-        p = robot_dir(robot_id) / rel
+    rel = upstream(profile).get("sim_model")
+    if rel and str(rel).endswith(".xml"):
+        p = THIRD_PARTY / robot_id / rel
         if p.is_file():
             return p
+    if robot_id == "microduck":
+        noesis = Path("/Users/robertonavoni/Desktop/Lavoro/Progetti-2026/Progetti Software/NOESIS EXPERIMENT/"
+                      "third_party/microduck_rl/src/mjlab_microduck/robot/microduck/scene.xml")
+        if noesis.is_file():
+            return noesis
     return None
 
 

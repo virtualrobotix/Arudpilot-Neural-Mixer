@@ -97,10 +97,26 @@ def pack_nnm(
     layers: list,
     default_pose: np.ndarray,
 ) -> bytes:
+    """Post-training path: quantize float layers from an ONNX export, then pack."""
+    qlayers = []
+    for l in layers:
+        Wq, w_scales = quantize_rows(l["W"])
+        qlayers.append({"Wq": Wq, "w_scale": w_scales, "b": l["b"], "act": l["act"]})
+    return pack_nnm_quantized(robot_id, mean, std, qlayers, default_pose)
+
+
+def pack_nnm_quantized(
+    robot_id: str,
+    mean: np.ndarray,
+    std: np.ndarray,
+    qlayers: list,
+    default_pose: np.ndarray,
+) -> bytes:
+    """Pack int8 layers {Wq[out,in] int8, w_scale[out], b[out], act} into the NNM1 format."""
     obs_dim = int(mean.size)
-    act_dim = int(layers[-1]["W"].shape[0])
-    n_layers = len(layers)
-    dims = [int(layers[0]["W"].shape[1])] + [int(l["W"].shape[0]) for l in layers]
+    act_dim = int(qlayers[-1]["Wq"].shape[0])
+    n_layers = len(qlayers)
+    dims = [int(qlayers[0]["Wq"].shape[1])] + [int(l["Wq"].shape[0]) for l in qlayers]
     if dims[0] != obs_dim or dims[-1] != act_dim:
         raise SystemExit(f"shape mismatch dims={dims} obs={obs_dim} act={act_dim}")
     if default_pose.size == 0:
@@ -116,16 +132,42 @@ def pack_nnm(
     flags = 0x03  # bit0 int8, bit1 per-row W scale, bias float32
     buf += struct.pack("<HHBBH", obs_dim, act_dim, n_layers, flags, 0)
     buf += struct.pack("<" + "H" * len(dims), *dims)
-    buf += bytes(1 if l["act"] else 0 for l in layers)
+    buf += bytes(1 if l["act"] else 0 for l in qlayers)
     buf += mean.astype(np.float32).tobytes()
     buf += std.astype(np.float32).tobytes()
     buf += default_pose.astype(np.float32).tobytes()
-    for l in layers:
-        Wq, w_scales = quantize_rows(l["W"])
-        buf += w_scales.astype(np.float32).tobytes()
-        buf += l["b"].astype(np.float32).tobytes()
-        buf += Wq.tobytes()
+    for l in qlayers:
+        buf += np.asarray(l["w_scale"], dtype=np.float32).tobytes()
+        buf += np.asarray(l["b"], dtype=np.float32).tobytes()
+        buf += np.ascontiguousarray(l["Wq"], dtype=np.int8).tobytes()
     return bytes(buf)
+
+
+def unpack_nnm(blob: bytes) -> dict:
+    """Parse an NNM1 file back into arrays (mirror of nnm_parse_policy_nnm in the firmware)."""
+    if blob[:4] != b"NNM1":
+        raise ValueError("not an NNM1 file")
+    robot_id = blob[4:20].split(b"\0", 1)[0].decode("ascii")
+    obs_dim, act_dim, n_layers, flags, _ = struct.unpack_from("<HHBBH", blob, 20)
+    off = 28
+    dims = list(struct.unpack_from("<" + "H" * (n_layers + 1), blob, off))
+    off += (n_layers + 1) * 2
+    acts = list(blob[off:off + n_layers])
+    off += n_layers
+    mean = np.frombuffer(blob, "<f4", obs_dim, off).copy(); off += obs_dim * 4
+    std = np.frombuffer(blob, "<f4", obs_dim, off).copy(); off += obs_dim * 4
+    pose = np.frombuffer(blob, "<f4", act_dim, off).copy(); off += act_dim * 4
+    layers = []
+    for l in range(n_layers):
+        n_in, n_out = dims[l], dims[l + 1]
+        s = np.frombuffer(blob, "<f4", n_out, off).copy(); off += n_out * 4
+        b = np.frombuffer(blob, "<f4", n_out, off).copy(); off += n_out * 4
+        W = np.frombuffer(blob, "i1", n_out * n_in, off).reshape(n_out, n_in).copy(); off += n_out * n_in
+        layers.append((W, s, b, bool(acts[l])))
+    if off != len(blob):
+        raise ValueError(f"trailing bytes: parsed {off} of {len(blob)}")
+    return {"robot_id": robot_id, "flags": flags, "dims": dims, "mean": mean, "std": std,
+            "default_pose": pose, "layers": layers}
 
 
 def dequant_forward(mean, std, layers_q, obs: np.ndarray) -> np.ndarray:
@@ -150,6 +192,17 @@ def main() -> None:
     profile = load_profile(args.robot)
     mean, std, layers, default_pose, meta = parse_onnx(args.onnx_path)
     act_dim = layers[-1]["W"].shape[0]
+    meta_names = [n for n in meta.get("joint_names", "").split(",") if n]
+    prof_names = profile.get("joint_names") or []
+    if default_pose.size != act_dim and prof_names and len(meta_names) == default_pose.size:
+        # ONNX lists every robot joint (e.g. Microban's unactuated head); keep the policy joints
+        by_name = dict(zip(meta_names, default_pose.tolist()))
+        missing = [n for n in prof_names if n not in by_name]
+        if missing:
+            raise SystemExit(f"profile joints not in ONNX metadata: {missing}")
+        default_pose = np.array([by_name[n] for n in prof_names], dtype=np.float32)
+    if default_pose.size != act_dim and profile.get("q0"):
+        default_pose = np.asarray(profile["q0"], dtype=np.float32)
     n_joints = int(profile.get("n_joints") or act_dim)
     if profile.get("n_joints") and profile["n_joints"] != act_dim:
         raise SystemExit(

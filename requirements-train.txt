@@ -1,0 +1,4 @@
+# Int8 PPO training on the ArduPilot deployment contract (tools/robots/train_velocity.py, nnm_qat.py)
+-r requirements.txt
+torch>=2.3
+pytest>=8

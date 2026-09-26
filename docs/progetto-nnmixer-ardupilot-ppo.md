@@ -3,7 +3,7 @@
 **Autore:** Roberto Navoni — DelphyAI LAB  
 **Contatto:** r.navoni74@gmail.com  
 **Data:** 24 settembre 2026  
-**Stato:** implementato e validato in SITL (§11); repo privato `virtualrobotix/Arudpilot-Neural-Mixer`  
+**Stato:** implementato e validato in SITL (§11); repo privato `virtualrobotix/Ardupilot-Neural-Mixer`  
 **Disclaimer:** *Developed by Roberto Navoni : r.navoni74@gmail.com*
 
 Portare la policy PPO MLP del NNMixer (61 obs → 14 azioni, 50 Hz) **dentro ArduPilot** come task dello scheduler, in modo che lo stesso sorgente giri prima in SITL su Linux/macOS e poi sul microcontrollore del flight controller. MuJoCo non è un secondo autopilota: è il **backend fisico del SITL**, esattamente come Gazebo o RealFlight per un drone. Il test e il comando passano da **MAVProxy**.
@@ -188,7 +188,7 @@ Il lock-step del protocollo JSON garantisce che SITL e MuJoCo avanzino insieme: 
 
 ## 7. Procedura di lavoro
 
-1. **Repo progetto** `Arudpilot-Neural-Mixer` (accanto a NOESIS, GitHub privato): `ardupilot/` come submodule del fork, `plant/`, `policies/` (ONNX validati copiati), `tools/` (export pesi → C, test parità), `docs/`.
+1. **Repo progetto** `Ardupilot-Neural-Mixer` (accanto a NOESIS, GitHub privato): `ardupilot/` come submodule del fork, `plant/`, `policies/` (ONNX validati copiati), `tools/` (export pesi → C, test parità), `docs/`.
 2. **ArduPilot**: clone `master`, `Tools/environment_install/install-prereqs-mac.sh`, `./waf configure --board sitl`, `./waf rover`. Verifica che `sim_vehicle.py -v Rover -f JSON` parta con un plant vuoto.
 3. **Pianta MuJoCo**: script JSON con la scena attuale; test standalone con il SITL non modificato (IMU e posizione visibili in MAVProxy).
 4. **Export pesi** MLP da `.pt` → header C + `mean/std`; parità ONNX vs C.
@@ -241,7 +241,7 @@ Su H743 (2 MB flash) la MLP sta in flash in float32; INT8 (~190 KB) apre la stra
 
 ## 11. Stato dell'implementazione (24 settembre 2026)
 
-Repo: `virtualrobotix/Arudpilot-Neural-Mixer` (privato) con il fork `virtualrobotix/ardupilot`, branch `microduck-ppo` (master upstream del 24/09 + `AP_NNMixer`) come submodule.
+Repo: `virtualrobotix/Ardupilot-Neural-Mixer` (privato) con il fork `virtualrobotix/ardupilot`, branch `microduck-ppo` (master upstream del 24/09 + `AP_NNMixer`) come submodule.
 
 | Componente | Stato |
 |---|---|

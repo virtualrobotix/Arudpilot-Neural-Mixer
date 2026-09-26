@@ -1,45 +1,23 @@
-# Pipeline MuJoCo → ONNX → `.nnm` per AP_NNMixer
+# robots/
 
-Ogni robot vive in `robots/<id>/`:
+Una cartella per robot. La stessa classificazione si ritrova sulla microSD dell'autopilota.
 
 ```
 robots/<id>/
-  robot/
-    profile.json   # topologia: n_joints, obs_dim, rate_hz, q0, joint_names
-    robot.bin      # generato: python tools/robots/pack_robot_bin.py --robot <id>
-    scene.xml      # MJCF locale (MicroDuck usa NNMIXER_MJCF / scena Pollen)
-    SCENE.md
-  policies/
-    <nome>.onnx    # dopo il training
-    <nome>.nnm     # int8 per SD: python tools/robots/export_nnm.py ...
-  README.md
+  robot/profile.json   topologia: giunti, q0, osservazione, frequenza, upstream, simulazione
+  robot/ppo.yaml       architettura PPO e ambiente di training compatibile con ArduPilot
+  robot/robot.bin      topologia per il firmware   -> /APM/nnm/<id>/robot.bin
+  robot/scene.xml      scena MuJoCo generata da fetch_upstream.py (non versionata)
+  policies/*.nnm       policy int8 di questo robot  -> /APM/nnm/<id>/policies/
+  policies/README.md   elenco e provenienza delle policy
 ```
 
-Su microSD la stessa classificazione:
+Tutti i file `profile.json`, `ppo.yaml`, le pagine `docs/robots/*.md` e i `policies/README.md` si
+rigenerano da [`tools/robots/catalog.py`](../tools/robots/catalog.py):
 
+```bash
+.venv/bin/python tools/robots/build_catalog.py
 ```
-/APM/nnm/<id>/robot.bin
-/APM/nnm/<id>/policies/<nome>.nnm
-```
 
-## Script
-
-| Script | Ruolo |
-|---|---|
-| `tools/robots/zero_policy_step.py` | Carica MJCF e fa un passo a policy zero |
-| `tools/robots/train_velocity.py` | Entrypoint ricetta MjLab (job GPU) |
-| `tools/robots/export_nnm.py` | ONNX → `.nnm` int8 con `robot_id` |
-| `tools/robots/pack_robot_bin.py` | `profile.json` → `robot.bin` |
-| `tools/export_policy_c.py` | ONNX → header float32 (fallback flash / parity) |
-
-## Ordine di training suggerito
-
-1. MicroDuck (già integrato)
-2. Microban (MjLab già pronto)
-3. Legolas, Upkie, Zeroth (dopo conversione MJCF e stand a policy zero)
-4. Rex, Yertle (oggi non MuJoCo)
-5. Bimo (8 giunti, 20 Hz)
-
-## Contratto osservazione
-
-Comune a tutti: gyro FLU, gravità FLU, `q−q0`, `q̇`, azione precedente, twist `vx,vy,wz`. Comandi testa/corpo solo se il robot li ha (vettore più corto, non imbottito a 61).
+Catalogo e pagine per robot: [docs/robots/README.md](../docs/robots/README.md).
+Training: [docs/robots/training.md](../docs/robots/training.md).

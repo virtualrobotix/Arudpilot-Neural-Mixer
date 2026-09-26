@@ -1,9 +1,10 @@
 {
   "robot_id": "legolas",
+  "nnm_robot": 4,
   "class": "biped",
   "display_name": "Legolas",
   "n_joints": 10,
-  "obs_dim": 0,
+  "obs_dim": 39,
   "rate_hz": 50,
   "q0": [
     0.0,
@@ -18,29 +19,33 @@
     0.0
   ],
   "joint_names": [
-    "joint_0",
-    "joint_1",
-    "joint_2",
-    "joint_3",
-    "joint_4",
-    "joint_5",
-    "joint_6",
-    "joint_7",
-    "joint_8",
-    "joint_9"
+    "R_Hip_1",
+    "R_Hip_2",
+    "R_Thigh",
+    "R_Foreleg",
+    "R_Servo",
+    "L_Hip_1",
+    "L_Hip_2",
+    "L_Thigh",
+    "L_Foreleg",
+    "L_Servo"
   ],
   "servo_fn0": 94,
-  "obs_layout": {
-    "gyro_flu": 3,
-    "gravity_flu": 3,
-    "q_minus_q0": "n_joints",
-    "qd": "n_joints",
-    "prev_action": "n_joints",
-    "twist_vx_vy_wz": 3,
-    "head_cmd": "optional",
-    "body_cmd": "optional"
+  "servos": "10 servo hobby PWM (8× 40 kg, 2× 80 kg), upstream tramite PCA9685",
+  "link": "pwm",
+  "status": "needs-model",
+  "upstream": {
+    "repo": "https://github.com/daviddoo02/Legolas-an-open-source-biped",
+    "license": "MIT",
+    "sim_model": "Mujoco xml/Working Mk 5 - Old model - Demo only/CMU Mk 5.xml",
+    "sim_model_note": "MJCF dimostrativo: giunto libero commentato, gravità 0, ctrlrange dei motori ±1e-5, gambe a catena chiusa (4 vincoli connect); va sistemato prima del training e salvato come robots/legolas/robot/scene.xml",
+    "cad": "https://github.com/daviddoo02/Legolas-an-open-source-biped/tree/main/CAD (SolidWorks V1-V3, STL in CAD/Legolas/V2/STLs)",
+    "bom": "lista materiali nel README upstream; guida di montaggio non ancora pubblicata",
+    "training": "nessuno upstream (controllore IK del passo su ROS)",
+    "published_policy": "nessuna"
   },
-  "upstream": "https://github.com/daviddoo02/Legolas-an-open-source-biped",
-  "status": "needs-mjcf",
-  "mjcf": "robot/scene.xml"
+  "sim": {
+    "actuator": "position",
+    "home_z": 0.6
+  }
 }

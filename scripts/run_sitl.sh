@@ -5,7 +5,8 @@
 # Extra args go to sim_vehicle.py.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# SITL filesystem cwd is ardupilot/; mirror SD layout for NNM_ROBOT / NNM_POLICY loads.
+# SITL's filesystem root is its working directory (ardupilot/ under sim_vehicle.py):
+# mirror the microSD layout there for NNM_ROBOT / NNM_POLICY.
 mkdir -p "$ROOT/ardupilot/APM/nnm"
 if [[ -d "$ROOT/sitl/APM/nnm" ]]; then
   cp -R "$ROOT/sitl/APM/nnm/." "$ROOT/ardupilot/APM/nnm/"
